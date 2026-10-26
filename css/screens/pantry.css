@@ -1,0 +1,333 @@
+/* ПОЛКА · экран «Полка»: записка о сроках, полки и шторка продукта */
+
+/* ── Сводка ──────────────────────────────────────────────────────── */
+
+.pantry-summary .summary-grid__item {
+  min-width: 0;
+  padding: 12px 10px;
+}
+
+.pantry-summary .summary-grid__value {
+  overflow-wrap: anywhere;
+  font-size: clamp(16px, 4.8vw, 19px);
+  font-variant-numeric: tabular-nums;
+}
+
+.pantry-summary .summary-grid__label { font-size: 8px; }
+
+/* ── Заметка о сроках ────────────────────────────────────────────── */
+
+.pantry-rescue { margin-top: 18px; }
+
+.pantry-rescue .note__text { font-size: 12.5px; }
+
+.pantry-rescue__action {
+  min-height: 44px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
+.pantry-rescue__action .icon { width: 15px; height: 15px; }
+
+.pantry-quiet {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.pantry-quiet .icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--kale);
+}
+
+/* ── Поиск и фильтры ─────────────────────────────────────────────── */
+
+.pantry-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.pantry-toolbar .search-field { min-width: 0; }
+
+.pantry-toolbar .search-field input { padding-right: 50px; }
+
+.pantry-toolbar .search-field__clear {
+  right: 1px;
+  width: 44px;
+  height: 44px;
+}
+
+.pantry-filter-btn {
+  padding-inline: 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pantry-filter-btn .icon { width: 16px; height: 16px; }
+
+.pantry-filter-btn__count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--butter);
+  color: #4a340b;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.pantry-chips { margin-top: 10px; }
+
+.pantry-chips .chip {
+  min-height: 44px;
+  padding: 10px 14px;
+}
+
+.pantry-filter-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.pantry-filter-status .text-link {
+  min-height: 44px;
+  flex: none;
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── Список ──────────────────────────────────────────────────────── */
+
+.pantry-results {
+  margin-top: 18px;
+  outline: none;
+}
+
+.pantry-list-head { margin-bottom: 2px; }
+
+.pantry-list-head .section-note {
+  max-width: 58%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pantry-group { margin-top: 8px; }
+
+.pantry-group + .pantry-group { margin-top: 16px; }
+
+.pantry-list { margin-top: 2px; }
+
+.pantry-row {
+  gap: 10px;
+  padding-right: 2px;
+  padding-left: 4px;
+}
+
+.pantry-row .list-row__name { font-size: 14px; }
+
+.pantry-row .list-row__meta { font-size: 11px; }
+
+.pantry-row__tail {
+  display: flex;
+  max-width: 48%;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.pantry-row .badge {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+  text-overflow: ellipsis;
+}
+
+.pantry-row .list-row__sub {
+  margin-top: 0;
+  color: var(--ink-2);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pantry-row:active { background: rgba(46, 74, 56, 0.05); }
+
+.pantry-row.is-expired {
+  padding-left: 9px;
+  background: rgba(198, 75, 49, 0.055);
+  box-shadow: inset 3px 0 0 var(--tomato);
+}
+
+.pantry-row.is-expired .list-row__name { color: var(--tomato-deep); }
+
+.pantry-add { margin-top: 22px; }
+
+/* ── Пустая полка ────────────────────────────────────────────────── */
+
+.pantry-empty { margin-top: 20px; }
+
+.pantry-empty .empty__text { margin-bottom: 2px; }
+
+.pantry-empty__actions {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pantry-empty__actions .btn { width: 100%; }
+
+/* ── Шторка продукта ─────────────────────────────────────────────── */
+
+.pantry-form {
+  display: grid;
+  gap: 14px;
+  padding-bottom: 2px;
+}
+
+.pantry-form .field-row { gap: 10px; }
+
+.pantry-form .segmented button {
+  min-height: 44px;
+  padding: 7px 3px;
+  font-size: 11.5px;
+}
+
+.pantry-form .quick-dates {
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.pantry-form .quick-dates button {
+  min-height: 44px;
+  padding: 8px 11px;
+  background: var(--card);
+  font-size: 11.5px;
+}
+
+.pantry-form .quick-dates button:active {
+  border-color: var(--kale);
+  background: var(--kale-soft);
+  color: var(--kale-deep);
+}
+
+.pantry-autofill {
+  padding: 8px 10px;
+  border-left: 2px solid var(--sage);
+  background: var(--kale-soft);
+  color: var(--kale-deep);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.pantry-form .field__hint { font-size: 11.5px; }
+
+.pantry-form__danger {
+  padding-top: 4px;
+  border-top: 1px dashed var(--line);
+}
+
+.pantry-form__danger .text-link {
+  min-height: 44px;
+  font-size: 12.5px;
+}
+
+/* ── Сканер ──────────────────────────────────────────────────────── */
+
+.pantry-scan {
+  display: grid;
+  gap: 6px;
+}
+
+.sheet--scanner .sheet__body {
+  padding-bottom: 4px;
+}
+
+.scanner {
+  display: grid;
+  gap: 12px;
+}
+
+.scanner__viewport {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  max-height: 52vh;
+  border-radius: var(--radius-sheet);
+  background: #101711;
+}
+
+.scanner__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner__frame {
+  position: absolute;
+  inset: 14% 10%;
+  border: 2px solid rgba(255, 253, 246, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgba(12, 20, 14, 0.32);
+  pointer-events: none;
+}
+
+.scanner__status {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.scanner__status.is-error {
+  color: var(--tomato-deep);
+}
+
+.scanner__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* ── Узкий экран ─────────────────────────────────────────────────── */
+
+@media (max-width: 359px) {
+  .pantry-summary .summary-grid__item { padding: 10px 8px; }
+  .pantry-summary .summary-grid__value { font-size: 16px; }
+  .pantry-summary .summary-grid__label { font-size: 7.5px; }
+  .pantry-filter-btn { width: 46px; padding: 0; }
+  .pantry-filter-btn > span:not(.pantry-filter-btn__count) { display: none; }
+  .pantry-filter-btn__count {
+    position: absolute;
+    margin: -26px 0 0 26px;
+    pointer-events: none;
+  }
+  .pantry-filter-btn { position: relative; }
+  .pantry-list-head .section-note { max-width: 54%; font-size: 8.5px; }
+}

@@ -1,0 +1,40 @@
+{
+  "format": "polka",
+  "version": 1,
+  "exportedAt": "2026-10-22T09:00:00.000Z",
+  "state": {
+    "version": 1,
+    "createdAt": "2026-10-22T09:00:00.000Z",
+    "demo": false,
+    "demoSeed": 19,
+    "settings": { "servings": 2, "diet": "all", "maxTime": 0 },
+    "pantry": [
+      {
+        "id": "p_test_import",
+        "ingredientId": "tomato",
+        "name": "помидоры",
+        "qty": 500,
+        "unit": "г",
+        "category": "Овощи",
+        "storage": "fridge",
+        "expires": "2026-11-01",
+        "price": 140,
+        "addedAt": "2026-10-22"
+      }
+    ],
+    "plan": {},
+    "shopping": [
+      {
+        "id": "s_test_import",
+        "ingredientId": "greens",
+        "name": "зелень",
+        "qty": 1,
+        "unit": "пучок",
+        "checked": false,
+        "source": "manual",
+        "price": 70
+      }
+    ],
+    "stats": { "cooked": 0, "history": {} }
+  }
+}

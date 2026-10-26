@@ -1,0 +1,59 @@
+{
+  "id": "./",
+  "name": "ПОЛКА — кухонный журнал",
+  "short_name": "ПОЛКА",
+  "description": "Что приготовить из того, что уже есть: полка, рецепты, план на неделю и покупки. Работает офлайн, данные остаются на устройстве.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "./#/pantry",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#f2ecdf",
+  "theme_color": "#f2ecdf",
+  "categories": ["food", "lifestyle", "productivity"],
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Полка",
+      "short_name": "Полка",
+      "description": "Что лежит на полке",
+      "url": "./#/pantry",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Покупки",
+      "short_name": "Покупки",
+      "description": "Список покупок",
+      "url": "./#/shopping",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "План",
+      "short_name": "План",
+      "description": "План на неделю",
+      "url": "./#/plan",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

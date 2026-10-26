@@ -1,0 +1,841 @@
+/* ПОЛКА · «Рецепты»: подборка с полки и карточка рецепта */
+
+/* ── Список ─────────────────────────────────────────────────────── */
+
+.recipes-head { margin-bottom: 16px; }
+.recipes-head .screen-lead strong { color: var(--ink-2); }
+
+.recipes-search input { padding-right: 48px; }
+.recipes-search .search-field__clear {
+  right: 1px;
+  width: 44px;
+  height: 44px;
+}
+
+.recipes-chips {
+  margin-top: 10px;
+  padding-bottom: 2px;
+}
+.recipes-chips .chip {
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+}
+.recipes-chips .chip[data-chip="all"] {
+  padding-right: 16px;
+  padding-left: 16px;
+}
+.recipes-chips .chip:active { border-color: var(--kale); }
+
+.recipes-status {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 6px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+.recipes-status strong {
+  flex: none;
+  color: var(--ink);
+  font-weight: 400;
+}
+.recipes-status span {
+  overflow: hidden;
+  min-width: 0;
+  margin-left: auto;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recipe-list {
+  display: grid;
+  gap: 12px;
+}
+
+.recipe-card {
+  position: relative;
+  display: block;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: var(--shadow-note);
+  transition: transform 160ms var(--ease), border-color 160ms var(--ease),
+    box-shadow 160ms var(--ease);
+}
+.recipe-card:active {
+  border-color: var(--ink);
+  box-shadow: 2px 2px 0 rgba(28, 48, 36, 0.1);
+  transform: translate(2px, 2px);
+}
+.recipe-card:focus-visible {
+  outline: var(--focus);
+  outline-offset: 3px;
+}
+@media (hover: hover) {
+  .recipe-card:hover {
+    border-color: var(--ink);
+    box-shadow: 4px 5px 0 rgba(28, 48, 36, 0.12);
+  }
+}
+
+.recipe-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.recipe-card__meal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recipe-card__meal::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--kale);
+}
+.recipe-card__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  white-space: nowrap;
+}
+.recipe-card__time .icon { width: 12px; height: 12px; }
+
+.recipe-card__title {
+  overflow-wrap: break-word;
+  margin-top: 8px;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.recipe-card__desc {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.recipe-card__match {
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+.recipe-card__match-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.recipe-card__percent {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+.recipe-card__percent small {
+  margin-left: 1px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.recipe-card__status {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  text-align: right;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.recipe-card__status.is-ready { color: var(--kale); }
+.recipe-card__match .meter { margin-top: 6px; height: 3px; }
+.recipe-card__missing {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 7px;
+  color: var(--tomato-deep);
+  font-size: 11px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.recipe-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.recipe-card__meta {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+}
+.recipe-card__rescue {
+  gap: 4px;
+  min-height: 21px;
+  padding: 2px 8px;
+}
+.recipe-card__rescue .icon { width: 11px; height: 11px; }
+
+/* ── Карточка рецепта: шапка ────────────────────────────────────── */
+
+.recipe-back {
+  min-height: 44px;
+  margin: -6px 0 10px;
+  color: var(--muted);
+  border-bottom-color: var(--line-strong);
+}
+.recipe-back:active { color: var(--ink); }
+
+.recipe-title {
+  overflow-wrap: break-word;
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: clamp(30px, 9vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+.recipe-desc {
+  max-width: 48ch;
+  margin-top: 10px;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.58;
+}
+.recipe-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 13px;
+}
+.recipe-tag {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.recipe-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.recipe-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.recipe-meta .icon { width: 13px; height: 13px; }
+
+/* ── Совпадение и порции ────────────────────────────────────────── */
+
+.recipe-match {
+  margin-top: 18px;
+  padding: 15px;
+  border-color: var(--line-strong);
+  background: var(--card);
+}
+.match-summary {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+.match-summary__percent {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+.match-summary__percent small {
+  margin-left: 1px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.match-summary__caption {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.match-summary__status {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.match-summary__status.is-ready { color: var(--kale); }
+.match-summary__body .meter { margin-top: 7px; height: 4px; }
+.match-summary__note {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.match-summary__missing {
+  margin-top: 3px;
+  color: var(--tomato-deep);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.match-summary__missing.is-ready { color: var(--kale); }
+.match-summary__rescue {
+  margin-top: 6px;
+  color: #6b4a0d;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.recipe-servings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+}
+.recipe-servings__label {
+  display: block;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.recipe-servings__hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+.recipe-servings .stepper button {
+  width: 44px;
+  height: 44px;
+}
+.recipe-servings .stepper button .icon { width: 16px; height: 16px; }
+.recipe-servings .stepper output { min-width: 38px; }
+
+/* ── Состав ─────────────────────────────────────────────────────── */
+
+.recipe-ingredients .section-head { margin-bottom: 6px; }
+.ingredient-list { border-top: 1px solid var(--ink); }
+.ingredient-list__row {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ingredient-list__dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border: 1px solid var(--kale);
+  border-radius: 50%;
+  background: var(--kale);
+}
+.ingredient-list__row.is-missing .ingredient-list__dot {
+  border-color: var(--tomato);
+  background: transparent;
+}
+.ingredient-list__row.is-optional .ingredient-list__dot {
+  border-color: var(--line-strong);
+  background: transparent;
+}
+.ingredient-list__name {
+  display: block;
+  overflow-wrap: break-word;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.ingredient-list__row.is-optional .ingredient-list__name { color: var(--muted); }
+.ingredient-list__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  color: var(--kale);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.05em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+.ingredient-list__row.is-missing .ingredient-list__sub { color: var(--tomato-deep); }
+.ingredient-list__row.is-optional .ingredient-list__sub { color: var(--muted); }
+.ingredient-list__flag {
+  padding: 1px 5px;
+  border: 1px solid var(--butter);
+  background: var(--butter-soft);
+  color: #6b4a0d;
+  letter-spacing: 0.04em;
+}
+.ingredient-list__qty {
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.ingredient-list__row.is-missing .ingredient-list__qty { color: var(--tomato-deep); }
+
+/* ── Шаги и подсказка ───────────────────────────────────────────── */
+
+.recipe-steps {
+  counter-reset: step;
+  display: grid;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ink);
+}
+.recipe-steps li {
+  position: relative;
+  padding-left: 30px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.recipe-steps li::before {
+  counter-increment: step;
+  content: counter(step, decimal-leading-zero);
+  position: absolute;
+  top: 2px;
+  left: 0;
+  color: var(--tomato-deep);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+.recipe-tip { margin-top: 16px; }
+.recipe-tip .note__title { color: #5b3d09; }
+
+/* ── Источник и видео ───────────────────────────────────────────── */
+
+.recipe-origin {
+  padding-top: 18px;
+  border-top: 1px solid var(--ink);
+}
+.recipe-origin .section-head { margin-bottom: 8px; }
+.recipe-origin__links {
+  display: grid;
+  gap: 8px;
+}
+.origin-link {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 16px;
+  gap: 11px;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+.origin-link:hover {
+  border-color: var(--ink);
+  background: var(--card-2);
+}
+.origin-link:active { transform: translateY(1px); }
+.origin-link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+.origin-link__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--kale);
+}
+.origin-link__icon .icon {
+  width: 18px;
+  height: 18px;
+}
+.origin-link--video .origin-link__icon {
+  border-color: var(--tomato-soft);
+  background: var(--tomato-soft);
+  color: var(--tomato-deep);
+}
+.origin-link--video .origin-link__icon .icon {
+  fill: currentColor;
+  stroke: none;
+}
+.origin-link__body { min-width: 0; }
+.origin-link__eyebrow {
+  display: block;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.07em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.origin-link__title {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.origin-link__meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+.origin-link__arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+}
+.recipe-origin__note {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+/* ── Действия ───────────────────────────────────────────────────── */
+
+.recipe-actions {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ink);
+}
+.recipe-actions .section-title { font-size: 20px; }
+.recipe-actions__stack {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.recipe-actions__cook {
+  min-height: 52px;
+  font-size: 15px;
+}
+.recipe-actions__cook .icon { width: 19px; height: 19px; }
+.recipe-actions__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  margin-left: 2px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--butter-soft);
+  color: #6b4a0d;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+.recipe-actions__note {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ── Не найдено ─────────────────────────────────────────────────── */
+
+.recipe-notfound {
+  margin-top: 6px;
+  padding-top: 40px;
+  padding-bottom: 40px;
+}
+.recipe-notfound .empty__title {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+/* ── Шторки рецепта ─────────────────────────────────────────────── */
+
+.recipe-sheet .sheet__title { padding-right: 6px; }
+
+.cook-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.cook-summary strong {
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.cook-block { margin-top: 16px; }
+.cook-block__title {
+  margin-bottom: 5px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.cook-list { border-top: 1px solid var(--ink); }
+.cook-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.cook-list__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.cook-list__name .badge {
+  min-height: 18px;
+  padding: 1px 5px;
+  font-size: 8px;
+}
+.cook-list__qty {
+  flex: none;
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cook-shortages { margin-top: 3px; }
+.cook-shortages li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.cook-shortages li span:last-child {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.cook-note { margin-top: 12px; }
+.cook-note .note__text { font-size: 12px; }
+
+/* ── Шторка «В план» ────────────────────────────────────────────── */
+
+.plan-picker { display: grid; gap: 18px; }
+.plan-picker__fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.plan-picker__legend {
+  display: block;
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.plan-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.plan-date,
+.plan-meal { position: relative; display: block; cursor: pointer; }
+.plan-date__input,
+.plan-meal__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.plan-date__box {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--card);
+  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+}
+.plan-date__input:checked + .plan-date__box {
+  border-color: var(--kale-deep);
+  background: var(--kale-soft);
+  box-shadow: inset 0 0 0 1px var(--kale-deep);
+}
+.plan-date__input:focus-visible + .plan-date__box,
+.plan-meal__input:focus-visible + span {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+.plan-date__day {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.plan-date__meta {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+.plan-meals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card-2);
+}
+.plan-meal span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 4px;
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+.plan-meal__input:checked + span {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgba(29, 38, 31, 0.12);
+}
+.plan-picker__hint {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* ── Узкие экраны и ширина стола ────────────────────────────────── */
+
+@media (max-width: 340px) {
+  .recipe-card { padding: 13px; }
+  .recipe-card__title { font-size: 19px; }
+  .recipe-card__percent { font-size: 23px; }
+  .match-summary {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 11px;
+  }
+  .match-summary__percent { font-size: 33px; }
+  .recipe-title { font-size: 29px; }
+  .recipe-match { padding: 13px; }
+  .plan-date__box { padding: 8px; }
+}
+
+@media (min-width: 700px) {
+  .recipe-list { gap: 14px; }
+  .recipe-card { padding: 18px; }
+  .recipe-card__title { font-size: 23px; }
+  .recipe-desc { font-size: 14.5px; }
+  .recipe-match { padding: 18px; }
+}

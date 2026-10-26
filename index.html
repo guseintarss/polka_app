@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ПОЛКА — кухонный журнал</title>
+  <meta name="description" content="ПОЛКА помнит, что лежит на полке, подсказывает, что приготовить, собирает план на неделю и список покупок. Работает офлайн, данные остаются на устройстве.">
+  <meta name="theme-color" content="#f2ecdf">
+  <meta name="color-scheme" content="light">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ПОЛКА">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ПОЛКА — кухонный журнал">
+  <meta property="og:description" content="Что приготовить из того, что уже есть. Полка, рецепты, план на неделю и покупки — в кармане.">
+  <meta property="og:image" content="assets/og.png?v=27">
+  <meta property="og:locale" content="ru_RU">
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="preload" href="assets/fonts/bitter-normal-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/bitter-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/golos-text-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="assets/fonts/golos-text-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/fonts.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/screens/pantry.css">
+  <link rel="stylesheet" href="css/screens/recipes.css">
+  <link rel="stylesheet" href="css/screens/plan.css">
+  <link rel="stylesheet" href="css/screens/shopping.css">
+  <link rel="stylesheet" href="css/screens/more.css">
+</head>
+<body>
+  <a class="skip-link" href="#screen">К содержимому</a>
+
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-shelf" viewBox="0 0 24 24">
+      <path d="M3 4h18M3 20h18M5 4v16M19 4v16M8 8h3v4H8zM13 8h3v4h-3z"/>
+    </symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24">
+      <path d="M20 12H5M11 6l-6 6 6 6"/>
+    </symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24">
+      <path d="M4 12h15M13 6l6 6-6 6"/>
+    </symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24">
+      <path d="M12 4v15M6 13l6 6 6-6"/>
+    </symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14"/>
+    </symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24">
+      <path d="M5 12h14"/>
+    </symbol>
+    <symbol id="i-close" viewBox="0 0 24 24">
+      <path d="M6 6l12 12M18 6L6 18"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/>
+    </symbol>
+    <symbol id="i-scan" viewBox="0 0 24 24">
+      <path d="M4 9V6a2 2 0 0 1 2-2h3M15 4h3a2 2 0 0 1 2 2v3M20 15v3a2 2 0 0 1-2 2h-3M9 20H6a2 2 0 0 1-2-2v-3M8 12h8"/>
+    </symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19 13.5v-3l-2-.6a7 7 0 0 0-.7-1.7l1-1.8-2.1-2.1-1.8 1a7 7 0 0 0-1.7-.7L11 2.5H8l-.6 2.1a7 7 0 0 0-1.7.7l-1.8-1-2.1 2.1 1 1.8a7 7 0 0 0-.7 1.7L0 10.5v3l2 .6a7 7 0 0 0 .7 1.7l-1 1.8 2.1 2.1 1.8-1a7 7 0 0 0 1.7.7l.6 2.1h3l.6-2.1a7 7 0 0 0 1.7-.7l1.8 1 2.1-2.1-1-1.8a7 7 0 0 0 .7-1.7z" transform="translate(2 0) scale(.85)"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24">
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/>
+    </symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24">
+      <path d="M4 20l4-.8L20 7.2 16.8 4 4.8 16z"/><path d="M14.5 6.3l3.2 3.2"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24">
+      <path d="M4 12.5l5 5L20 6.5"/>
+    </symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.6 2.6L16.5 9"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>
+    </symbol>
+    <symbol id="i-pot" viewBox="0 0 24 24">
+      <path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM2 10h20M8 6l1-3M16 6l-1-3M8 17l-1 3M16 17l1 3"/>
+    </symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24">
+      <rect x="3.5" y="5" width="17" height="15" rx="1"/><path d="M8 3v4M16 3v4M3.5 9.5h17"/>
+    </symbol>
+    <symbol id="i-list" viewBox="0 0 24 24">
+      <path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h1M4 12h1M4 18h1"/>
+    </symbol>
+    <symbol id="i-leaf" viewBox="0 0 24 24">
+      <path d="M20 4C12 4 5 8 5 15c0 3 2 5 5 5 7 0 10-7 10-16zM4 21c2-7 7-11 12-14"/>
+    </symbol>
+    <symbol id="i-download" viewBox="0 0 24 24">
+      <path d="M12 3v12M7 10l5 5 5-5M4 20h16"/>
+    </symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24">
+      <path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>
+    </symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24">
+      <path d="M4 11a8 8 0 1 1 2 6M4 4v7h7"/>
+    </symbol>
+    <symbol id="i-print" viewBox="0 0 24 24">
+      <path d="M7 8V3h10v5M7 17H4V9h16v8h-3M7 14h10v7H7z"/>
+    </symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24">
+      <path d="M8 10l4 4 4-4"/>
+    </symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24">
+      <path d="M10 8l4 4-4 4"/>
+    </symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24">
+      <path d="M14 8l-4 4 4 4"/>
+    </symbol>
+    <symbol id="i-snow" viewBox="0 0 24 24">
+      <path d="M12 2v20M3.5 6.5l17 11M20.5 6.5l-17 11M9 4l3 2 3-2M9 20l3-2 3 2"/>
+    </symbol>
+    <symbol id="i-flake" viewBox="0 0 24 24">
+      <path d="M12 2v20M3 7l18 10M21 7L3 17M9 3l3 3 3-3M9 21l3-3 3 3"/>
+    </symbol>
+    <symbol id="i-wallet" viewBox="0 0 24 24">
+      <path d="M4 6h15v14H4zM4 6l12-3v3M16 12h5v4h-5z"/>
+    </symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24">
+      <path d="M12 3L2.5 20h19zM12 9v5M12 17v.5"/>
+    </symbol>
+    <symbol id="i-basket" viewBox="0 0 24 24">
+      <path d="M4 9h16l-2 11H6zM8 9l2-5M16 9l-2-5M9 13v4M15 13v4"/>
+    </symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24">
+      <rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/>
+      <rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/>
+    </symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24">
+      <path d="M4 20V11M10 20V5M16 20v-6M22 20H2"/>
+    </symbol>
+    <symbol id="i-install" viewBox="0 0 24 24">
+      <rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M12 7v7M9 11l3 3 3-3M10 18.5h4"/>
+    </symbol>
+    <symbol id="i-share" viewBox="0 0 24 24">
+      <circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/>
+      <path d="M8.2 10.8l7.6-4.6M8.2 13.2l7.6 4.6"/>
+    </symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24">
+      <path d="M4 6h16M7 12h10M10 18h4"/>
+    </symbol>
+    <symbol id="i-info" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v.5"/>
+    </symbol>
+    <symbol id="i-offline" viewBox="0 0 24 24">
+      <path d="M7 18h10a4 4 0 0 0 .8-7.9A6 6 0 0 0 6.3 8.4M3 3l18 18M9.2 18A4 4 0 0 1 8 10.4"/>
+    </symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24">
+      <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6zM19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7z"/>
+    </symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24">
+      <path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>
+    </symbol>
+    <symbol id="i-users" viewBox="0 0 24 24">
+      <circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.2a3.5 3.5 0 0 1 0 5.6M18 20a6.4 6.4 0 0 0-2-4.6"/>
+    </symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24">
+      <rect x="5" y="10" width="14" height="11" rx="1"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+    </symbol>
+    <symbol id="i-book" viewBox="0 0 24 24">
+      <path d="M4 4h7a3 3 0 0 1 3 3v13a3 3 0 0 0-3-3H4zM20 4h-3a3 3 0 0 0-3 3v13a3 3 0 0 1 3-3h3z"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24">
+      <path d="M8 5.5v13l10-6.5z"/>
+    </symbol>
+    <symbol id="i-external" viewBox="0 0 24 24">
+      <path d="M14 4h6v6M20 4l-9 9M18 14v5H5V5h5"/>
+    </symbol>
+  </svg>
+
+  <div class="app-frame">
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="topbar__name">ПОЛКА</span>
+        <span class="topbar__sub">кухонный журнал</span>
+      </div>
+      <div class="topbar__actions">
+        <span class="demo-badge" id="demo-badge" hidden title="Демо-кухня. Свои данные можно начать в разделе «Ещё».">демо</span>
+        <span class="save-status" id="save-status" title="Данные хранятся на этом устройстве">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="save-status-text">локально</span>
+        </span>
+      </div>
+    </header>
+
+    <div class="offline-banner" id="offline-banner" role="status" hidden>
+      Нет сети — ПОЛКА продолжает работать с сохранёнными данными.
+    </div>
+
+    <main class="app-main" id="main">
+      <div id="screen" tabindex="-1"></div>
+      <noscript>
+        <p style="padding: 24px 18px;">Для работы ПОЛКИ нужен JavaScript. Включите его в настройках браузера.</p>
+      </noscript>
+    </main>
+
+    <nav class="tabbar" aria-label="Основные разделы">
+      <a class="tab" href="#/pantry" data-tab="pantry">
+        <svg class="icon" aria-hidden="true"><use href="#i-shelf"></use></svg>
+        <span class="tab__label">Полка</span>
+      </a>
+      <a class="tab" href="#/recipes" data-tab="recipes">
+        <svg class="icon" aria-hidden="true"><use href="#i-pot"></use></svg>
+        <span class="tab__label">Рецепты</span>
+      </a>
+      <a class="tab" href="#/plan" data-tab="plan">
+        <svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg>
+        <span class="tab__label">План</span>
+      </a>
+      <a class="tab" href="#/shopping" data-tab="shopping">
+        <svg class="icon" aria-hidden="true"><use href="#i-basket"></use></svg>
+        <span class="tab__label">Покупки</span>
+        <span class="tab__badge" data-badge="shopping" hidden></span>
+      </a>
+      <a class="tab" href="#/more" data-tab="more">
+        <svg class="icon" aria-hidden="true"><use href="#i-grid"></use></svg>
+        <span class="tab__label">Ещё</span>
+      </a>
+    </nav>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/engine.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

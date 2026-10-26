@@ -1,0 +1,50 @@
+/* ПОЛКА · мобильные токены. Наследуют палитру и шрифты сайта. */
+
+:root {
+  color-scheme: light;
+
+  --paper: #f2ecdf;
+  --paper-2: #e8dfce;
+  --paper-3: #ded2bd;
+  --card: #fbf7ed;
+  --card-2: #f6f0e3;
+  --ink: #1d261f;
+  --ink-2: #394437;
+  --muted: #5c6556;
+  --muted-2: #68715f;
+  --line: #cfc4af;
+  --line-strong: #a89c85;
+  --kale: #2e4a38;
+  --kale-deep: #1c3024;
+  --kale-ink: #122018;
+  --kale-soft: #dbe4d4;
+  --sage: #a5b398;
+  --tomato: #c64b31;
+  --tomato-deep: #8d2f1d;
+  --tomato-soft: #f2d6cc;
+  --butter: #dfa843;
+  --butter-soft: #f3e1b6;
+  --white: #fffdf6;
+
+  --font-display: 'Bitter', 'DejaVu Serif', Georgia, serif;
+  --font-body: 'Golos Text', 'Manrope', 'DejaVu Sans', system-ui, sans-serif;
+  --font-mono: 'PT Mono', 'DejaVu Sans Mono', monospace;
+
+  --app-max: 600px;
+  --gutter: 16px;
+  --radius: 4px;
+  --radius-card: 6px;
+  --radius-sheet: 18px;
+
+  --topbar-h: 58px;
+  --tabbar-h: 62px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --shadow-note: 5px 6px 0 rgba(28, 48, 36, 0.09);
+  --shadow-sheet: 0 -18px 60px rgba(12, 20, 14, 0.32);
+  --shadow-toast: 0 12px 34px rgba(12, 20, 14, 0.3);
+  --ease: cubic-bezier(0.2, 0.75, 0.25, 1);
+
+  --focus: 2px solid var(--tomato);
+}
