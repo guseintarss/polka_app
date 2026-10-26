@@ -7,6 +7,7 @@
 import * as store from '../store.js';
 import * as router from '../router.js';
 import { track } from '../analytics.js';
+import { recipeImage } from '../recipe-images.js';
 import {
   DATA, E, esc, icon, money, qty, plural, capitalize, render, $, $$, on,
   emptyState, matchLabel, matchTone, toast, openSheet
@@ -92,7 +93,13 @@ function recipeCardHtml(entry, servings) {
   const match = entry.match;
   const ready = match.canCook;
   const rescue = match.rescue;
+  const image = recipeImage(recipe.id, recipe.title);
   return '<a class="recipe-card" href="#/recipes/' + encodeURIComponent(recipe.id) + '" data-recipe-card="' + esc(recipe.id) + '">' +
+    (image
+      ? '<div class="recipe-card__media">' +
+          '<img src="' + esc(image.src) + '" alt="' + esc(image.alt) + '" width="800" height="500" loading="lazy" decoding="async">' +
+        '</div>'
+      : '') +
     '<div class="recipe-card__top">' +
       '<span class="recipe-card__meal">' + esc(mealsText(recipe)) + '</span>' +
       '<span class="recipe-card__time">' + icon('clock') + esc(recipe.time) + ' мин</span>' +
@@ -263,6 +270,14 @@ function recipeHeadHtml(recipe) {
   '</header>';
 }
 
+function recipeHeroHtml(recipe) {
+  const image = recipeImage(recipe.id, recipe.title);
+  if (!image) return '';
+  return '<figure class="recipe-hero">' +
+    '<img src="' + esc(image.src) + '" alt="' + esc(image.alt) + '" width="800" height="500" decoding="async" fetchpriority="high">' +
+  '</figure>';
+}
+
 function matchSummaryHtml(match, servings, cost) {
   const ready = match.canCook;
   return '<div class="match-summary">' +
@@ -410,6 +425,7 @@ function recipeMarkup(recipe) {
 
   return '<div class="screen recipe-screen">' +
     recipeHeadHtml(recipe) +
+    recipeHeroHtml(recipe) +
     '<div class="card recipe-match">' +
       '<div data-region="match">' + matchSummaryHtml(match, servings, E.recipeCost(recipe, servings)) + '</div>' +
       '<div class="recipe-servings">' +

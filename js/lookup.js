@@ -1,20 +1,40 @@
 /*
  * ПОЛКА · данные о продукте по штрихкоду.
- * Единственный модуль, который обращается в интернет: открытая база
- * Open Food Facts. Запрос уходит только по явному нажатию кнопки —
- * автоматических обращений нет, наружу уходит только сам код.
- * Найденное запоминается на устройстве (polka.lookup.v1): повторный
- * скан того же кода подставляет название даже офлайн.
+ * Единственный модуль, который обращается в интернет: открытые базы
+ * Open Food Facts и Open Products Facts. Запрос уходит по кнопке или после
+ * разового разрешения при сканировании; без согласия автоматических
+ * обращений нет, наружу уходит только сам код. Найденное запоминается
+ * на устройстве (polka.lookup.v1): повторный скан того же кода подставляет
+ * название даже офлайн.
  * Если localStorage недоступен, модуль молча работает в памяти.
  * Ни один метод не бросает исключение: поиск не имеет права ломать кухню.
  */
 
 const STORAGE_KEY = 'polka.lookup.v1';
 const FORMAT_VERSION = 1;
-const ENDPOINT = 'https://world.openfoodfacts.org/api/v2/product/';
-const FIELDS = 'product_name,brands,quantity';
+const FIELDS = 'product_name,product_name_ru,generic_name,brands,quantity,product_quantity,product_quantity_unit,categories_tags';
 const MAX_CACHE = 200;
-const TIMEOUT_MS = 12000;
+const MAX_CATEGORIES = 12;
+const TIMEOUT_MS = 8000;
+
+/* Источники опрашиваются по порядку: сначала еда, затем остальное. */
+const SOURCES = [
+  {
+    id: 'off',
+    label: 'Open Food Facts',
+    endpoint: 'https://world.openfoodfacts.org/api/v2/product/'
+  },
+  {
+    id: 'opf',
+    label: 'Open Products Facts',
+    endpoint: 'https://world.openproductsfacts.org/api/v2/product/'
+  }
+];
+
+/* Список источников для интерфейса: без служебных адресов. */
+export const LOOKUP_SOURCES = SOURCES.map(function (source) {
+  return { id: source.id, label: source.label };
+});
 
 let data = null;
 let storage = null;
@@ -50,13 +70,64 @@ function sanitizeText(value, max) {
     .slice(0, max);
 }
 
+function firstText(values, max) {
+  for (let i = 0; i < values.length; i += 1) {
+    const text = sanitizeText(values[i], max);
+    if (text) return text;
+  }
+  return '';
+}
+
+function normalizeCategories(value) {
+  if (!Array.isArray(value)) return [];
+  const result = [];
+  for (let i = 0; i < value.length && result.length < MAX_CATEGORIES; i += 1) {
+    if (typeof value[i] !== 'string') continue;
+    const tag = sanitizeText(value[i], 80);
+    if (!tag || result.indexOf(tag) !== -1) continue;
+    result.push(tag);
+  }
+  return result;
+}
+
+/*
+ * Количество: прямой текст важнее, затем число и единица из полей
+ * product_quantity/product_quantity_unit.
+ */
+function readQuantity(source) {
+  const quantity = sanitizeText(source.quantity, 40);
+  if (quantity) return quantity;
+  const amount = sanitizeText(source.product_quantity, 40);
+  if (!amount) return '';
+  return sanitizeText(amount + ' ' + sanitizeText(source.product_quantity_unit, 40), 40);
+}
+
+/*
+ * Приводит к стабильной форме и заодно читает ответ API: у сохранённой
+ * записи поля name/brand/quantity, у продукта из базы — product_name_ru,
+ * product_name, generic_name, brands и categories_tags.
+ */
 function normalizeInfo(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
-  const name = sanitizeText(source.name, 80);
-  const brand = sanitizeText(source.brand, 60);
-  const quantity = sanitizeText(source.quantity, 40);
+  const name = firstText([
+    source.product_name_ru,
+    source.product_name,
+    source.generic_name,
+    source.name
+  ], 80);
+  const brand = firstText([source.brand, source.brands], 60);
+  const quantity = readQuantity(source);
+  const categories = normalizeCategories(
+    Array.isArray(source.categories) ? source.categories : source.categories_tags
+  );
   if (!name && !brand) return null;
-  return { name: name || brand, brand: brand, quantity: quantity };
+  return {
+    name: name || brand,
+    brand: brand,
+    quantity: quantity,
+    categories: categories,
+    source: sanitizeText(source.source, 40)
+  };
 }
 
 function normalize(raw) {
@@ -157,9 +228,52 @@ export function rememberProduct(code, info) {
   persist();
 }
 
+/* ── Сеть ────────────────────────────────────────────────────────── */
+
 /*
- * Ищет продукт: сначала в памяти устройства, затем в Open Food Facts.
+ * Один запрос к одному источнику. Возвращает 'found' с продуктом,
+ * 'miss' (404 или товара нет в базе) или 'error' (сеть, таймаут,
+ * неожиданный HTTP-статус). Исключения не выходят наружу.
+ */
+async function fetchFromSource(source, code) {
+  let timer = null;
+  let controller = null;
+  try {
+    if (typeof AbortController === 'function') {
+      controller = new AbortController();
+      timer = setTimeout(function () { controller.abort(); }, TIMEOUT_MS);
+    }
+    const response = await fetch(
+      source.endpoint + encodeURIComponent(code) + '.json?fields=' + FIELDS,
+      {
+        signal: controller ? controller.signal : undefined,
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer',
+        credentials: 'omit'
+      }
+    );
+    if (response.status === 404) return { status: 'miss' };
+    if (response.status !== 200) return { status: 'error' };
+
+    const payload = await response.json();
+    if (!payload || Number(payload.status) !== 1) return { status: 'miss' };
+    const raw = payload.product;
+    if (!raw || typeof raw !== 'object') return { status: 'miss' };
+
+    const product = normalizeInfo(Object.assign({}, raw, { source: source.label }));
+    return product ? { status: 'found', product: product } : { status: 'miss' };
+  } catch (error) {
+    return { status: 'error' };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/*
+ * Ищет продукт: сначала в памяти устройства, затем по источникам.
  * Возвращает { status: 'found'|'notfound'|'error'|'invalid', product, cached }.
+ * Ошибка сети или сервера прерывает перебор: нет смысла стучаться дальше.
  */
 export async function findProduct(code) {
   const key = codeForLookup(code);
@@ -170,37 +284,13 @@ export async function findProduct(code) {
 
   if (typeof fetch !== 'function') return { status: 'error' };
 
-  let timer = null;
-  let controller = null;
-  if (typeof AbortController === 'function') {
-    controller = new AbortController();
-    timer = setTimeout(function () { controller.abort(); }, TIMEOUT_MS);
+  for (let i = 0; i < SOURCES.length; i += 1) {
+    const outcome = await fetchFromSource(SOURCES[i], key);
+    if (outcome.status === 'error') return { status: 'error' };
+    if (outcome.status === 'found') {
+      rememberProduct(key, outcome.product);
+      return { status: 'found', product: outcome.product, cached: false };
+    }
   }
-
-  try {
-    const url = ENDPOINT + encodeURIComponent(key) + '.json?fields=' + FIELDS;
-    const response = await fetch(url, {
-      signal: controller ? controller.signal : undefined,
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-      referrerPolicy: 'no-referrer'
-    });
-    if (response.status === 404) return { status: 'notfound' };
-    if (!response.ok) return { status: 'error' };
-
-    const payload = await response.json();
-    const product = payload && Number(payload.status) === 1 ? normalizeInfo({
-      name: payload.product ? payload.product.product_name : '',
-      brand: payload.product ? payload.product.brands : '',
-      quantity: payload.product ? payload.product.quantity : ''
-    }) : null;
-    if (!product) return { status: 'notfound' };
-
-    rememberProduct(key, product);
-    return { status: 'found', product: product, cached: false };
-  } catch (error) {
-    return { status: 'error' };
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  return { status: 'notfound' };
 }

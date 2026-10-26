@@ -59,6 +59,18 @@
   gap: 12px;
 }
 
+.recipe-list .recipe-card {
+  animation: recipe-card-in 260ms var(--ease) backwards;
+}
+.recipe-list .recipe-card:nth-child(2) { animation-delay: 30ms; }
+.recipe-list .recipe-card:nth-child(3) { animation-delay: 60ms; }
+.recipe-list .recipe-card:nth-child(4) { animation-delay: 90ms; }
+.recipe-list .recipe-card:nth-child(5) { animation-delay: 120ms; }
+@keyframes recipe-card-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .recipe-card {
   position: relative;
   display: block;
@@ -86,6 +98,25 @@
     border-color: var(--ink);
     box-shadow: 4px 5px 0 rgba(28, 48, 36, 0.12);
   }
+}
+
+.recipe-card__media {
+  overflow: hidden;
+  margin: -15px -15px 13px;
+  border-bottom: 1px solid var(--line);
+  border-radius: calc(var(--radius-card) - 1px) calc(var(--radius-card) - 1px) 0 0;
+  background: var(--paper-2);
+  aspect-ratio: 2 / 1;
+}
+.recipe-card__media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 420ms var(--ease);
+}
+@media (hover: hover) {
+  .recipe-card:hover .recipe-card__media img { transform: scale(1.035); }
 }
 
 .recipe-card__top {
@@ -285,6 +316,25 @@
   gap: 5px;
 }
 .recipe-meta .icon { width: 13px; height: 13px; }
+
+.recipe-hero {
+  overflow: hidden;
+  margin: 18px 0 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  background: var(--paper-2);
+  box-shadow: var(--shadow-note);
+  animation: recipe-hero-in 320ms var(--ease) both;
+}
+@keyframes recipe-hero-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.recipe-hero img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
 
 /* ── Совпадение и порции ────────────────────────────────────────── */
 
@@ -838,4 +888,10 @@
   .recipe-card__title { font-size: 23px; }
   .recipe-desc { font-size: 14.5px; }
   .recipe-match { padding: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recipe-list .recipe-card,
+  .recipe-hero { animation: none; }
+  .recipe-card__media img { transition: none; }
 }

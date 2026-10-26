@@ -15,6 +15,16 @@
 
 .pantry-summary .summary-grid__label { font-size: 8px; }
 
+.pantry-summary .summary-grid__item {
+  animation: pantry-rise 300ms var(--ease) both;
+}
+.pantry-summary .summary-grid__item:nth-child(2) { animation-delay: 45ms; }
+.pantry-summary .summary-grid__item:nth-child(3) { animation-delay: 90ms; }
+@keyframes pantry-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Заметка о сроках ────────────────────────────────────────────── */
 
 .pantry-rescue { margin-top: 18px; }
@@ -146,6 +156,11 @@
   gap: 10px;
   padding-right: 2px;
   padding-left: 4px;
+  animation: pantry-row-in 240ms var(--ease) both;
+}
+@keyframes pantry-row-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .pantry-row .list-row__name { font-size: 14px; }
@@ -185,7 +200,13 @@
 
 .pantry-row.is-expired .list-row__name { color: var(--tomato-deep); }
 
-.pantry-add { margin-top: 22px; }
+.pantry-add {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+.pantry-add .btn { min-height: 48px; }
+.pantry-add .btn--ghost { border-style: dashed; }
 
 /* ── Пустая полка ────────────────────────────────────────────────── */
 
@@ -298,6 +319,26 @@
   pointer-events: none;
 }
 
+.scanner__beam {
+  position: absolute;
+  z-index: 1;
+  top: 16%;
+  right: 10%;
+  left: 10%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 253, 246, 0.92), transparent);
+  box-shadow: 0 0 10px rgba(255, 253, 246, 0.7);
+  opacity: 0.3;
+  pointer-events: none;
+  animation: scanner-beam 2600ms var(--ease) infinite;
+}
+@keyframes scanner-beam {
+  0% { top: 16%; opacity: 0.2; }
+  50% { top: 84%; opacity: 0.95; }
+  100% { top: 16%; opacity: 0.2; }
+}
+
 .scanner__status {
   margin: 0;
   font-size: 13px;
@@ -315,6 +356,188 @@
   line-height: 1.45;
 }
 
+/* ── Конвейер: несколько продуктов за один заход ─────────────────── */
+
+.sheet--conveyor .sheet__body { padding-bottom: 2px; }
+
+.sheet--conveyor .sheet__foot .btn {
+  padding-inline: 10px;
+  font-size: 13px;
+}
+
+.conveyor {
+  display: grid;
+  gap: 10px;
+}
+
+.conveyor__consent {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
+  animation: pantry-rise 260ms var(--ease) both;
+}
+
+.conveyor__consent-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.conveyor__consent-text {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.conveyor__consent-actions {
+  display: grid;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.conveyor__scanner { gap: 8px; }
+
+.conveyor .scanner__viewport {
+  aspect-ratio: 4 / 3;
+  max-height: 34vh;
+}
+
+.conveyor__tally {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+
+.conveyor__tally-value {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.conveyor__tally-value.is-bump { animation: conveyor-pop 320ms var(--ease); }
+@keyframes conveyor-pop {
+  0% { transform: scale(1); }
+  38% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.conveyor__tally-label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.conveyor__feed {
+  display: grid;
+  gap: 6px;
+  overflow: auto;
+  max-height: 22vh;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+.conveyor__feed:empty { display: none; }
+
+.conveyor-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card-2);
+  animation: conveyor-row-in 420ms var(--ease) both;
+}
+@keyframes conveyor-row-in {
+  0% { opacity: 0; transform: translateY(-6px); background: var(--butter-soft); }
+  55% { opacity: 1; transform: translateY(0); background: var(--butter-soft); }
+  100% { background: var(--card-2); }
+}
+
+.conveyor-row__mark {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kale-soft);
+  color: var(--kale-deep);
+}
+.conveyor-row__mark .icon { width: 14px; height: 14px; }
+
+.conveyor-row__body {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.conveyor-row__name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conveyor-row__meta {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conveyor-row__code {
+  flex: none;
+  color: var(--muted-2);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.02em;
+}
+
+.conveyor-row.is-searching .conveyor-row__mark {
+  background: var(--butter-soft);
+  color: #6f4a06;
+}
+.conveyor-row.is-error .conveyor-row__mark {
+  background: var(--tomato-soft);
+  color: var(--tomato-deep);
+}
+.conveyor-row.is-already { opacity: 0.85; }
+.conveyor-row.is-removed { opacity: 0.6; }
+.conveyor-row.is-removed .conveyor-row__name { text-decoration: line-through; }
+
+.conveyor-row__spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(28, 48, 36, 0.25);
+  border-top-color: var(--kale-deep);
+  border-radius: 50%;
+  animation: conveyor-spin 800ms linear infinite;
+}
+@keyframes conveyor-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Узкий экран ─────────────────────────────────────────────────── */
 
 @media (max-width: 359px) {
@@ -330,4 +553,13 @@
   }
   .pantry-filter-btn { position: relative; }
   .pantry-list-head .section-note { max-width: 54%; font-size: 8.5px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner__beam { display: none; }
+  .pantry-summary .summary-grid__item,
+  .pantry-row,
+  .conveyor__consent,
+  .conveyor-row { animation: none; }
+  .conveyor__tally-value.is-bump { animation: none; }
 }

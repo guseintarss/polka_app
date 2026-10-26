@@ -4,7 +4,7 @@
  * localStorage живёт отдельно от кэша.
  */
 
-const VERSION = 'polka-app-v9';
+const VERSION = 'polka-app-v10';
 const CACHE = VERSION;
 const OFFLINE_URL = './index.html';
 
@@ -31,6 +31,7 @@ const ASSETS = [
   './js/analytics.js',
   './js/scanner.js',
   './js/lookup.js',
+  './js/recipe-images.js',
   './js/screens/pantry.js',
   './js/screens/recipes.js',
   './js/screens/plan.js',
@@ -39,6 +40,33 @@ const ASSETS = [
   './assets/fonts.css',
   './assets/favicon.svg',
   './assets/vendor/zxing.min.js',
+  './assets/dishes/avocado-toast.svg',
+  './assets/dishes/buckwheat-egg.svg',
+  './assets/dishes/bulgur-chicken.svg',
+  './assets/dishes/chicken-noodle-soup.svg',
+  './assets/dishes/chicken-pilaf.svg',
+  './assets/dishes/chicken-tacos.svg',
+  './assets/dishes/chickpea-curry.svg',
+  './assets/dishes/cottage-toast.svg',
+  './assets/dishes/fish-broccoli.svg',
+  './assets/dishes/greek-salad.svg',
+  './assets/dishes/hummus.svg',
+  './assets/dishes/lentil-soup.svg',
+  './assets/dishes/meatballs-mash.svg',
+  './assets/dishes/mushroom-risotto.svg',
+  './assets/dishes/oatmeal-apple.svg',
+  './assets/dishes/omelette-tomato.svg',
+  './assets/dishes/oven-chicken.svg',
+  './assets/dishes/pan-pizza.svg',
+  './assets/dishes/potato-casserole.svg',
+  './assets/dishes/pumpkin-quinoa.svg',
+  './assets/dishes/quinoa-avocado-salad.svg',
+  './assets/dishes/shakshuka.svg',
+  './assets/dishes/syrniki.svg',
+  './assets/dishes/tomato-pasta.svg',
+  './assets/dishes/tuna-sandwich.svg',
+  './assets/dishes/vegetable-stew.svg',
+  './assets/dishes/yogurt-banana.svg',
   './assets/icons/icon-192.png',
   './assets/icons/icon-512.png',
   './assets/icons/icon-maskable-512.png',

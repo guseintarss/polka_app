@@ -63,6 +63,8 @@ export function createScanner(options) {
   const onStatus = options.onStatus || function () {};
   const onResult = options.onResult || function () {};
   const onError = options.onError || function () {};
+  const continuous = Boolean(options.continuous);
+  const cooldown = Math.max(800, Number(options.cooldownMs) || 2400);
 
   let stream = null;
   let detector = null;
@@ -70,11 +72,15 @@ export function createScanner(options) {
   let timer = null;
   let stopped = true;
   let finished = false;
+  let lastCode = '';
+  let lastAt = 0;
 
   async function start() {
     if (!stopped) return;
     stopped = false;
     finished = false;
+    lastCode = '';
+    lastAt = 0;
 
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -147,8 +153,9 @@ export function createScanner(options) {
       detector.detect(video).then(function (codes) {
         if (stopped) return;
         if (codes && codes.length) {
-          finish(codes[0].rawValue, codes[0].format);
-          return;
+          const found = codes.find(function (item) { return item && item.rawValue; }) || codes[0];
+          accept(found.rawValue, found.format);
+          if (!continuous) return;
         }
         tickNative();
       }).catch(function () {
@@ -180,7 +187,7 @@ export function createScanner(options) {
       reader.decodeFromStream(stream, video, function (result) {
         if (stopped || !result) return;
         const format = result.getBarcodeFormat ? String(result.getBarcodeFormat()) : '';
-        finish(result.getText(), format);
+        accept(result.getText(), format);
       }).catch(function () {
         if (stopped) return;
         stopped = true;
@@ -194,11 +201,29 @@ export function createScanner(options) {
     }
   }
 
-  function finish(text, format) {
-    if (finished || stopped) return;
+  /*
+   * Обычный режим отдаёт первый код и выключает камеру.
+   * Непрерывный — оставляет камеру включённой и гасит повторы того же кода,
+   * чтобы один и тот же штрихкод в кадре не добавлялся каждые 280 мс.
+   */
+  function accept(text, format) {
+    if (stopped) return;
+    const code = String(text || '');
+    if (!code) return;
+
+    if (continuous) {
+      const now = Date.now();
+      if (code === lastCode && now - lastAt < cooldown) return;
+      lastCode = code;
+      lastAt = now;
+      onResult(code, format || '');
+      return;
+    }
+
+    if (finished) return;
     finished = true;
     stop();
-    onResult(String(text || ''), format || '');
+    onResult(code, format || '');
   }
 
   function stopStream() {

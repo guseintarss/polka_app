@@ -235,7 +235,8 @@ function emptyShelfHTML() {
     '<p class="empty__text">Добавьте первый продукт — ПОЛКА подскажет срок и посчитает стоимость. Или верните демо-кухню, чтобы осмотреться.</p>' +
     '<div class="pantry-empty__actions">' +
       '<button class="btn btn--primary" type="button" data-action="add">' + icon('plus') + ' Добавить продукт</button>' +
-      '<button class="btn btn--ghost" type="button" data-action="demo">Вернуть демо</button>' +
+      '<button class="btn btn--ghost" type="button" data-action="conveyor">' + icon('scan') + ' Сканировать подряд</button>' +
+      '<button class="btn btn--quiet" type="button" data-action="demo">Вернуть демо</button>' +
     '</div>' +
   '</div>';
 }
@@ -265,6 +266,9 @@ function screenHTML(state, today) {
         '<div class="pantry-add">' +
           '<button class="btn btn--primary btn--block" type="button" data-action="add">' +
             icon('plus') + ' Добавить продукт' +
+          '</button>' +
+          '<button class="btn btn--ghost btn--block" type="button" data-action="conveyor">' +
+            icon('scan') + ' Сканировать подряд' +
           '</button>' +
         '</div>') +
   '</div>';
@@ -365,6 +369,121 @@ function netQuantity(text) {
   return null;
 }
 
+/*
+ * Теги открытых баз («en:dairies», «fr:yaourts») → категория ПОЛКИ.
+ * Сопоставляем по корням слов: точные названия у баз слишком разные.
+ */
+const CATEGORY_RULES = [
+  ['Молочное', ['milk', 'dairy', 'dairies', 'cheese', 'yogurt', 'yoghurt', 'cream', 'butter', 'kefir', 'curd', 'fromage', 'lait', 'yaourt', 'молок', 'сыр', 'йогурт', 'творог', 'кефир', 'сметан', 'сливочн']],
+  ['Белок', ['meat', 'poultry', 'chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'seafood', 'egg', 'tofu', 'мяс', 'куриц', 'говядин', 'свинин', 'рыб', 'лосос', 'тунец', 'яйц', 'тофу']],
+  ['Зелень', ['herb', 'greens', 'parsley', 'dill', 'cilantro', 'basil', 'spinach', 'lettuce', 'зелень', 'укроп', 'петрушк', 'базилик', 'шпинат']],
+  ['Овощи', ['vegetable', 'tomato', 'cucumber', 'pepper', 'carrot', 'potato', 'onion', 'garlic', 'cabbage', 'zucchini', 'broccoli', 'pumpkin', 'mushroom', 'помидор', 'огурец', 'перец', 'морков', 'картоф', 'лук', 'чеснок', 'капуст', 'кабач', 'брокколи', 'тыкв', 'шампиньон', 'гриб', 'овощ']],
+  ['Фрукты', ['fruit', 'apple', 'banana', 'orange', 'lemon', 'pear', 'berry', 'berries', 'grape', 'яблок', 'банан', 'апельсин', 'лимон', 'груш', 'ягод', 'фрукт', 'виноград']],
+  ['Крупы', ['cereal', 'grain', 'rice', 'pasta', 'flour', 'oats', 'buckwheat', 'quinoa', 'couscous', 'рис', 'гречк', 'паста', 'макарон', 'мук', 'овсян', 'булгур', 'киноа', 'кускус', 'круп']],
+  ['Хлеб', ['bread', 'bakery', 'tortilla', 'хлеб', 'булк', 'батон', 'тортилл']],
+  ['Заморозка', ['frozen', 'ice cream', 'морожен', 'заморож']],
+  ['Бакалея', ['oil', 'sauce', 'spice', 'salt', 'sugar', 'honey', 'canned', 'legume', 'beans', 'lentil', 'chickpea', 'nut', 'масло', 'соус', 'специ', 'соль', 'сахар', 'мёд', 'мед', 'консерв', 'фасол', 'чечевиц', 'нут', 'орех']]
+];
+
+function categoryFromTags(tags) {
+  if (!Array.isArray(tags) || !tags.length) return '';
+  const haystack = ' ' + tags.join(' ').toLowerCase() + ' ';
+  for (let index = 0; index < CATEGORY_RULES.length; index += 1) {
+    const words = CATEGORY_RULES[index][1];
+    for (let word = 0; word < words.length; word += 1) {
+      const stem = words[word].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pattern = new RegExp('(^|[^a-zа-яё0-9])' + stem + '[a-zа-яё]{0,3}([^a-zа-яё0-9]|$)');
+      if (pattern.test(haystack)) return CATEGORY_RULES[index][0];
+    }
+  }
+  return '';
+}
+
+function storageForCategory(category) {
+  if (!category) return '';
+  if (category === 'Молочное' || category === 'Белок' || category === 'Овощи' ||
+      category === 'Фрукты' || category === 'Зелень') return 'fridge';
+  if (category === 'Заморозка') return 'freezer';
+  return 'pantry';
+}
+
+/* Поля продукта, которые можно взять из ответа базы. */
+function productFields(info) {
+  const fields = {};
+  if (!info) return fields;
+  const net = netQuantity(info.quantity);
+  if (net) {
+    fields.qty = net.qty;
+    fields.unit = net.unit;
+  }
+  const category = categoryFromTags(info.categories);
+  if (category && DATA.CATEGORY_ORDER.indexOf(category) !== -1) {
+    fields.category = category;
+    const storage = storageForCategory(category);
+    if (storage) fields.storage = storage;
+  }
+  return fields;
+}
+
+function productName(info) {
+  if (!info) return '';
+  return String(info.name || info.brand || '').trim();
+}
+
+function lookupSource(info, cached) {
+  if (cached) return 'Из памяти устройства';
+  return info && info.source ? 'Из ' + info.source : 'Из открытой базы';
+}
+
+function productMetaText(product, info, cached) {
+  const parts = [];
+  const brand = info && info.brand ? String(info.brand).trim() : '';
+  if (brand && E.normalizeName(brand) !== E.normalizeName(product.name)) parts.push(brand);
+  if (Number(product.qty) > 0 && product.unit) parts.push(E.formatQty(product.qty, product.unit));
+  if (product.category && product.category !== 'Другое') parts.push(product.category);
+  parts.push(cached ? 'из памяти' : (info && info.source ? info.source : 'открытая база'));
+  return parts.join(' · ');
+}
+
+function conveyorCountText(count) {
+  return count + ' ' + plural(count, PRODUCT_WORDS);
+}
+
+/* Поля, которые конвейер может дополнить после ответа базы. */
+const CONVEYOR_FIELDS = ['name', 'qty', 'unit', 'category', 'storage', 'expires', 'price'];
+
+function productSnapshot(item) {
+  const snapshot = {};
+  CONVEYOR_FIELDS.forEach(function (key) { snapshot[key] = item[key]; });
+  return snapshot;
+}
+
+/*
+ * Карточка для конвейера: минимум обязательных полей, всё найденное —
+ * из памяти/базы, остальное подсказывает каталог. Название-заглушка
+ * остаётся, если кода нет в открытых базах, — его можно поправить позже.
+ */
+function conveyorPayload(code, info) {
+  const payload = {
+    name: info && info.name ? productName(info) : 'Товар ' + code,
+    barcode: code
+  };
+  if (info) Object.assign(payload, productFields(info));
+
+  const meta = E.resolveIngredient(payload.name);
+  const amount = Number(payload.qty) > 0 ? Number(payload.qty) : (meta ? defaultQty(meta) : 1);
+  const unit = payload.unit || (meta ? meta.unit : 'шт');
+  payload.qty = amount;
+  payload.unit = unit;
+
+  if (meta) {
+    payload.expires = E.addDays(store.getToday(), Number(meta.shelfLife) || 7);
+    const estimate = Math.round(E.estimateCost(meta.id, amount, unit));
+    if (estimate > 0) payload.price = estimate;
+  }
+  return payload;
+}
+
 function openProductSheet(item) {
   const editing = Boolean(item);
   const today = store.getToday();
@@ -444,9 +563,9 @@ function openProductSheet(item) {
           'value="' + esc(current.barcode || '') + '" aria-describedby="pantry-barcode-hint">' +
         '<p class="field__hint" id="pantry-barcode-hint" data-barcode-hint>Заполнится после сканирования. Можно ввести вручную.</p>' +
         '<button class="btn btn--quiet btn--block" type="button" data-lookup>' +
-          icon('search') + '<span data-lookup-label aria-live="polite">Найти название в интернете</span>' +
+          icon('search') + '<span data-lookup-label aria-live="polite">Найти в открытых базах</span>' +
         '</button>' +
-        '<p class="field__hint">Запрос уходит только по нажатию: код — в открытую базу Open Food Facts.</p>' +
+        '<p class="field__hint">Запрос уходит только по нажатию: код — в открытые базы Open Food Facts и Open Products Facts.</p>' +
       '</div>' +
       '<p class="form-error" data-form-error role="alert" hidden></p>' +
       (editing
@@ -615,38 +734,60 @@ function openProductSheet(item) {
     if (!lookupButton) return;
     lookupButton.disabled = busy;
     lookupButton.setAttribute('aria-busy', busy ? 'true' : 'false');
-    if (lookupLabel) lookupLabel.textContent = busy ? 'Ищем в Open Food Facts…' : 'Найти название в интернете';
+    if (lookupLabel) lookupLabel.textContent = busy ? 'Ищем в открытых базах…' : 'Найти в открытых базах';
   }
 
   function applyLookupProduct(code, info, cached) {
-    const source = cached ? 'Из памяти устройства' : 'Из Open Food Facts';
-    if (nameInput.value.trim()) {
-      toast(source + ': «' + info.name + '». Название уже заполнено — оставили ваше.', { duration: 7000 });
-      return;
+    if (!info) return;
+    const source = lookupSource(info, cached);
+    const foundName = productName(info);
+    const ownName = nameInput.value.trim();
+    const parts = [];
+
+    if (info.brand && E.normalizeName(info.brand) !== E.normalizeName(foundName)) {
+      parts.push(info.brand);
     }
 
-    fillFromName(info.name, null);
+    if (!ownName && foundName) fillFromName(foundName, null);
 
-    const parts = [];
-    if (info.brand && E.normalizeName(info.brand) !== E.normalizeName(info.name)) parts.push(info.brand);
     const net = netQuantity(info.quantity);
     if (net && !touched.qty && !touched.unit && DATA.UNITS.indexOf(net.unit) !== -1) {
       qtyInput.value = String(net.qty);
       unitSelect.value = net.unit;
       touched.qty = true;
       touched.unit = true;
+      parts.push('в упаковке ' + E.formatQty(net.qty, net.unit));
       if (!touched.price && activeMeta) {
         const estimate = estimatePrice();
         if (estimate) priceInput.value = String(estimate);
       }
-      parts.push('в упаковке ' + E.formatQty(net.qty, net.unit));
     } else if (info.quantity) {
       parts.push(info.quantity);
     }
 
-    setAutofill(source + ': ' + (parts.length ? parts.join(' · ') + '. ' : '') + 'Проверьте название и количество.');
-    barcodeHint.textContent = 'Код ' + code + (cached ? ' — есть в памяти устройства.' : ' — найден в Open Food Facts.');
-    toast(source + ': «' + info.name + '».');
+    const category = categoryFromTags(info.categories);
+    if (category && !touched.category && DATA.CATEGORY_ORDER.indexOf(category) !== -1) {
+      categorySelect.value = category;
+      touched.category = true;
+      parts.push(category);
+      const storage = storageForCategory(category);
+      if (storage && !touched.storage) {
+        setStorage(storage);
+        touched.storage = true;
+      }
+    }
+
+    setAutofill(source + (parts.length ? ': ' + parts.join(' · ') : '') + '. Проверьте название и количество.');
+    barcodeHint.textContent = 'Код ' + code + (cached
+      ? ' — есть в памяти устройства.'
+      : ' — найден в ' + (info.source || 'открытой базе') + '.');
+    if (ownName && foundName && E.normalizeName(ownName) !== E.normalizeName(foundName)) {
+      toast(source + ': «' + foundName + '». Название оставили ваше.');
+    } else if (ownName) {
+      toast(source + ': данные подставлены.');
+    } else if (foundName) {
+      toast(source + ': «' + foundName + '».');
+    }
   }
 
   async function runLookup() {
@@ -673,8 +814,8 @@ function openProductSheet(item) {
 
     if (!lookup.hasLookupConsent()) {
       const allowed = await confirmSheet({
-        title: 'Найти продукт в интернете?',
-        text: 'Код ' + code + ' уйдёт в открытую базу Open Food Facts. Названия, цены и данные о кухне останутся на устройстве.',
+        title: 'Найти продукт в открытых базах?',
+        text: 'Код ' + code + ' уйдёт в открытые базы Open Food Facts и Open Products Facts. Названия, цены и данные о кухне останутся на устройстве.',
         confirmLabel: 'Найти',
         danger: false
       });
@@ -695,6 +836,7 @@ function openProductSheet(item) {
     else track('scan_lookup', { reason: result.status });
 
     if (!sheet.dialog.isConnected) return;
+    if (lookup.codeForLookup(barcodeInput.value) !== code) return;
 
     if (result.status === 'found') {
       applyLookupProduct(code, result.product, false);
@@ -702,9 +844,47 @@ function openProductSheet(item) {
     }
 
     if (result.status === 'notfound') {
-      toast('В базе Open Food Facts этого кода нет. Впишите название вручную.', { tone: 'error', duration: 7000 });
+      toast('В открытых базах этого кода нет. Впишите название вручную.', { tone: 'error', duration: 7000 });
     } else {
       toast('Не получилось получить данные. Проверьте связь и попробуйте ещё раз.', { tone: 'error' });
+    }
+  }
+
+  /* Автопоиск после скана: только если разрешение уже выдано. */
+  async function autoLookup(code) {
+    if (lookupBusy) return;
+    setLookupBusy(true);
+    barcodeHint.textContent = 'Код ' + code + ' — ищем в открытых базах…';
+    let result;
+    try {
+      result = await lookup.findProduct(code);
+    } finally {
+      setLookupBusy(false);
+    }
+    if (!sheet.dialog.isConnected) return;
+    if (lookup.codeForLookup(barcodeInput.value) !== code) return;
+
+    if (result.status === 'found') {
+      track('scan_lookup', { reason: 'found' });
+      applyLookupProduct(code, result.product, result.cached);
+      return;
+    }
+
+    if (result.status === 'notfound') {
+      track('scan_lookup', { reason: 'notfound' });
+      barcodeHint.textContent = 'Код ' + code + ' — в открытых базах не найден.';
+      if (!nameInput.value.trim()) {
+        toast('Кода нет в открытых базах. Впишите название вручную.', { tone: 'error', duration: 7000 });
+        nameInput.focus();
+      }
+      return;
+    }
+
+    track('scan_lookup', { reason: result.status === 'invalid' ? 'invalid' : 'error' });
+    barcodeHint.textContent = 'Код ' + code + ' сохранён. Данные получить не удалось.';
+    if (!nameInput.value.trim()) {
+      toast('Не получилось получить данные. Впишите название вручную.', { tone: 'error' });
+      nameInput.focus();
     }
   }
 
@@ -733,6 +913,19 @@ function openProductSheet(item) {
           toast('Код ' + parsed.code + ': подставили «' + remembered.name + '» из памяти.');
           return;
         }
+      }
+
+      if (!nameInput.value.trim() && !lookupBusy && lookup.hasLookupConsent()) {
+        if (navigator.onLine) {
+          barcodeHint.textContent = 'Код ' + parsed.code + ' — ищем в открытых базах…';
+          toast('Код распознан. Ищем данные…');
+          autoLookup(parsed.code);
+          return;
+        }
+        barcodeHint.textContent = 'Код ' + parsed.code + ' сохранён. Нет интернета — впишите название.';
+        toast('Код распознан. Нет интернета — впишите название вручную.');
+        nameInput.focus();
+        return;
       }
 
       barcodeHint.textContent = 'Код ' + parsed.code + ' сохранён в карточке.';
@@ -781,6 +974,7 @@ function openProductSheet(item) {
           '<div class="scanner__viewport">' +
             '<video class="scanner__video" playsinline muted autoplay aria-label="Изображение с камеры"></video>' +
             '<span class="scanner__frame" aria-hidden="true"></span>' +
+            '<span class="scanner__beam" aria-hidden="true"></span>' +
           '</div>' +
           '<p class="scanner__status" role="status" data-scan-status>Включаем камеру…</p>' +
           '<p class="scanner__hint">Держите код в рамке. Декодер работает офлайн.</p>' +
@@ -969,6 +1163,438 @@ function openProductSheet(item) {
   }
 }
 
+/* ── Конвейер: несколько продуктов за один заход ─────────────────── */
+
+function startConveyor() {
+  if (!isScannerSupported()) {
+    toast('Камера недоступна: нужен HTTPS и разрешение. Добавьте продукты вручную.', { tone: 'error', duration: 6000 });
+    track('scan_fail', { reason: 'unsupported' });
+    return;
+  }
+  track('conveyor_start');
+  openConveyorSheet();
+}
+
+function openConveyorSheet() {
+  const allowed = lookup.hasLookupConsent();
+  let autoLookup = allowed;
+  let scanner = null;
+  let closed = false;
+  let begun = false;
+  let pending = 0;
+  let backgroundUpdated = 0;
+  let chain = Promise.resolve();
+  const added = [];
+  const seen = new Set();
+
+  const consentHtml =
+    '<div class="conveyor__consent" data-conveyor-consent>' +
+      '<p class="conveyor__consent-title">Подставлять данные из открытых баз?</p>' +
+      '<p class="conveyor__consent-text">Когда код распознан, ПОЛКА ищет название, бренд и объём в Open Food Facts и Open Products Facts. Наружу уходит только штрихкод; названия продуктов, цены и данные о кухне остаются на устройстве.</p>' +
+      '<div class="conveyor__consent-actions">' +
+        '<button class="btn btn--primary btn--block" type="button" data-conveyor-allow>' +
+          icon('sparkle') + ' Искать автоматически' +
+        '</button>' +
+        '<button class="btn btn--ghost btn--block" type="button" data-conveyor-skip>' +
+          'Только по коду и памяти' +
+        '</button>' +
+      '</div>' +
+    '</div>';
+
+  const sheet = openSheet({
+    eyebrow: 'Сканер',
+    title: 'Сканировать подряд',
+    subtitle: allowed
+      ? 'Держите камеру над кодом — продукты добавляются сами.'
+      : 'Сначала выберите, как искать данные по коду.',
+    className: 'sheet--scanner sheet--conveyor',
+    content:
+      '<div class="conveyor">' +
+        (allowed ? '' : consentHtml) +
+        '<div class="scanner conveyor__scanner" data-conveyor-camera' + (allowed ? '' : ' hidden') + '>' +
+          '<div class="scanner__viewport">' +
+            '<video class="scanner__video" playsinline muted autoplay aria-label="Изображение с камеры"></video>' +
+            '<span class="scanner__frame" aria-hidden="true"></span>' +
+            '<span class="scanner__beam" aria-hidden="true"></span>' +
+          '</div>' +
+          '<p class="scanner__status" role="status" data-conveyor-status>' +
+            (allowed ? 'Включаем камеру…' : 'Сначала выберите способ поиска.') +
+          '</p>' +
+          '<p class="scanner__hint">Наводите камеру на коды по очереди. Один код — один продукт, повторы пропускаем.</p>' +
+        '</div>' +
+        '<div class="conveyor__tally" data-conveyor-tally>' +
+          '<span class="conveyor__tally-value" data-conveyor-count>0</span>' +
+          '<span class="conveyor__tally-label">добавлено за сеанс</span>' +
+          '<span class="visually-hidden" role="status" aria-live="polite" data-conveyor-live></span>' +
+        '</div>' +
+        '<ul class="conveyor__feed" data-conveyor-feed aria-label="Добавленные продукты"></ul>' +
+      '</div>',
+    footer:
+      '<button class="btn btn--ghost" type="button" data-conveyor-undo disabled>Отменить последнее</button>' +
+      '<button class="btn btn--primary" type="button" data-conveyor-done>Готово</button>',
+    initialFocus: allowed ? '[data-conveyor-done]' : '[data-conveyor-allow]',
+    onClose: function () {
+      closed = true;
+      if (scanner) scanner.stop();
+      if (added.length) {
+        renderScreen({ focus: '[data-action="conveyor"]' });
+        toast('На полку добавлено ' + conveyorCountText(added.length) + '.');
+      }
+    }
+  });
+
+  const dialog = sheet.dialog;
+  const video = dialog.querySelector('.scanner__video');
+  const status = dialog.querySelector('[data-conveyor-status]');
+  const feed = dialog.querySelector('[data-conveyor-feed]');
+  const counter = dialog.querySelector('[data-conveyor-count]');
+  const live = dialog.querySelector('[data-conveyor-live]');
+  const consent = dialog.querySelector('[data-conveyor-consent]');
+  const cameraBox = dialog.querySelector('[data-conveyor-camera]');
+  const undoButton = sheet.footer.querySelector('[data-conveyor-undo]');
+  const doneButton = sheet.footer.querySelector('[data-conveyor-done]');
+
+  function setStatus(text, error) {
+    if (!status || !status.isConnected) return;
+    status.textContent = text;
+    status.classList.toggle('is-error', Boolean(error));
+  }
+
+  function announce(text) {
+    if (live && live.isConnected) live.textContent = text;
+  }
+
+  function renderCount(bump) {
+    if (counter) {
+      counter.textContent = String(added.length);
+      if (bump) {
+        counter.classList.remove('is-bump');
+        void counter.offsetWidth;
+        counter.classList.add('is-bump');
+      }
+    }
+    if (undoButton) undoButton.disabled = added.length === 0;
+    announce(added.length
+      ? 'Добавлено ' + conveyorCountText(added.length) + '.'
+      : 'Пока ничего не добавлено.');
+  }
+
+  function markOf(state) {
+    if (state === 'searching') return '<span class="conveyor-row__spinner"></span>';
+    if (state === 'done') return icon('check');
+    if (state === 'already') return icon('shelf');
+    if (state === 'removed') return icon('close');
+    if (state === 'error') return icon('warning');
+    return icon('scan');
+  }
+
+  function updateRow(row, name, state, note) {
+    if (!row || !row.isConnected) return;
+    row.className = 'conveyor-row is-' + state;
+    const nameNode = row.querySelector('.conveyor-row__name');
+    const metaNode = row.querySelector('.conveyor-row__meta');
+    const mark = row.querySelector('.conveyor-row__mark');
+    if (nameNode) nameNode.textContent = name || '';
+    if (metaNode) metaNode.textContent = note || '';
+    if (mark) mark.innerHTML = markOf(state);
+  }
+
+  function pushRow(code, name, state, note) {
+    const row = document.createElement('li');
+    row.className = 'conveyor-row is-' + state;
+    row.innerHTML =
+      '<span class="conveyor-row__mark" aria-hidden="true"></span>' +
+      '<span class="conveyor-row__body">' +
+        '<span class="conveyor-row__name"></span>' +
+        '<span class="conveyor-row__meta"></span>' +
+      '</span>' +
+      '<span class="conveyor-row__code"></span>';
+    const codeNode = row.querySelector('.conveyor-row__code');
+    if (codeNode) codeNode.textContent = code;
+    feed.insertBefore(row, feed.firstChild);
+    while (feed.children.length > 8) feed.removeChild(feed.lastElementChild);
+    updateRow(row, name, state, note);
+    return row;
+  }
+
+  function itemFor(id) {
+    return store.getState().pantry.find(function (entry) { return entry.id === id; });
+  }
+
+  function applyQueuedResult(entry, result) {
+    const item = itemFor(entry.id);
+    if (!item) {
+      updateRow(entry.row, entry.name, 'removed', 'убран с полки');
+      return;
+    }
+
+    if (result.status === 'found') {
+      track('scan_lookup', { reason: 'found' });
+      const info = result.product;
+      const name = productName(info);
+      if (!name) {
+        updateRow(entry.row, entry.name, 'plain', 'в открытых базах нет названия — переименуйте позже');
+        return;
+      }
+
+      const patch = Object.assign({}, productFields(info));
+      patch.name = name;
+      const meta = E.resolveIngredient(name);
+
+      /* Что пользователь успел поправить, пока шёл поиск. */
+      const base = entry.base || {};
+      const edited = {};
+      CONVEYOR_FIELDS.forEach(function (key) {
+        if (item[key] !== base[key]) edited[key] = true;
+      });
+
+      const amount = edited.qty || !(Number(patch.qty) > 0)
+        ? (Number(item.qty) > 0 ? Number(item.qty) : (meta ? defaultQty(meta) : 1))
+        : Number(patch.qty);
+      const unit = edited.unit ? item.unit : (patch.unit || item.unit || (meta ? meta.unit : 'шт'));
+      patch.qty = amount;
+      patch.unit = unit;
+      if (!edited.expires && !item.expires && meta) {
+        patch.expires = E.addDays(store.getToday(), Number(meta.shelfLife) || 7);
+      }
+      if (!edited.price && meta) {
+        const estimate = Math.round(E.estimateCost(meta.id, amount, unit));
+        if (estimate > 0) patch.price = estimate;
+      }
+
+      /*
+       * Правки пользователя фиксируем явно: updatePantry при смене имени
+       * заново выводит единицу, категорию и зону из каталога, поэтому
+       * просто удалить ключ из patch недостаточно.
+       */
+      const kept = Object.keys(edited).length > 0;
+      CONVEYOR_FIELDS.forEach(function (key) {
+        if (edited[key]) patch[key] = item[key];
+      });
+
+      const visible = CONVEYOR_FIELDS.some(function (key) {
+        return Object.prototype.hasOwnProperty.call(patch, key) && patch[key] !== item[key];
+      });
+
+      let saved = item;
+      if (visible) {
+        saved = store.updatePantry(entry.id, patch);
+        if (!saved) {
+          updateRow(entry.row, entry.name, 'removed', 'убран с полки');
+          return;
+        }
+        backgroundUpdated += 1;
+      }
+      entry.name = saved.name;
+      updateRow(entry.row, saved.name, 'done', kept
+        ? 'данные найдены · ваши правки сохранены'
+        : productMetaText(saved, info, result.cached));
+      setStatus('«' + saved.name + '» — данные из ' +
+        (result.cached ? 'памяти устройства' : (info.source || 'открытой базы')) + '.');
+      announce(kept
+        ? '«' + saved.name + '»: данные найдены, ваши правки сохранены.'
+        : '«' + saved.name + '»: данные подставлены.');
+      return;
+    }
+
+    if (result.status === 'notfound') {
+      track('scan_lookup', { reason: 'notfound' });
+      updateRow(entry.row, entry.name, 'plain', 'в открытых базах не найден — переименуйте позже');
+      setStatus('Код ' + entry.code + ' в базах не найден. Название можно поправить позже.');
+      announce('Код ' + entry.code + ' не найден в открытых базах.');
+      return;
+    }
+
+    track('scan_lookup', { reason: result.status === 'invalid' ? 'invalid' : 'error' });
+    updateRow(entry.row, entry.name, 'error', 'не удалось получить данные — переименуйте позже');
+    setStatus('Не получилось получить данные для кода ' + entry.code + '.', true);
+    announce('Не удалось получить данные для кода ' + entry.code + '.');
+  }
+
+  /* Куда вернуть фокус после фоновой перерисовки полки. */
+  function focusSelectorNow() {
+    const active = document.activeElement;
+    if (!active || active === document.body) return null;
+    if (active.id === 'pantry-search') return '#pantry-search';
+    const edit = active.closest('[data-action="edit"][data-id]');
+    if (edit) return '[data-action="edit"][data-id="' + edit.getAttribute('data-id') + '"]';
+    const storage = active.closest('[data-storage]');
+    if (storage) return '[data-storage="' + storage.getAttribute('data-storage') + '"]';
+    if (active.closest('[data-soon]')) return '[data-soon]';
+    const action = active.closest('[data-action="conveyor"], [data-action="add"], [data-action="filters"]');
+    if (action) return '[data-action="' + action.getAttribute('data-action') + '"]';
+    return null;
+  }
+
+  function finishQueue() {
+    if (!closed || !backgroundUpdated) return;
+    if (!root || !root.querySelector('.pantry-screen')) return;
+
+    /* Под открытой шторкой не перерисовываем фон: вернёмся после закрытия. */
+    const open = document.querySelector('dialog.sheet');
+    if (open) {
+      open.addEventListener('close', function () {
+        window.requestAnimationFrame(function () { finishQueue(); });
+      }, { once: true });
+      return;
+    }
+
+    /* Фиксируем ещё не применённый ввод поиска, иначе render потеряет его. */
+    const search = root.querySelector('#pantry-search');
+    if (search) filters.query = search.value.trim();
+
+    const focus = focusSelectorNow();
+    backgroundUpdated = 0;
+    refreshScreen(focus);
+    toast('Данные продуктов обновлены из открытых баз.');
+  }
+
+  function queueLookup(entry) {
+    pending += 1;
+    chain = chain
+      .then(function () {
+        return lookup.findProduct(entry.code).catch(function () {
+          return { status: 'error' };
+        });
+      })
+      .then(function (result) {
+        try {
+          applyQueuedResult(entry, result);
+        } finally {
+          pending -= 1;
+          if (pending === 0) finishQueue();
+        }
+      })
+      .catch(function () { /* очередь не должна обрываться */ });
+  }
+
+  function handleScan(raw) {
+    if (closed) return;
+    const parsed = E.parseScanPayload(raw);
+    if (!parsed.code) {
+      track('scan_fail', { reason: 'empty' });
+      setStatus('В этом QR-коде нет штрихкода. Нужен код товара.', true);
+      announce('Код не распознан.');
+      return;
+    }
+
+    const code = parsed.code;
+    if (seen.has(code)) {
+      setStatus('Код ' + code + ' уже был в этом сеансе — повтор пропущен.');
+      announce('Повторный код пропущен.');
+      return;
+    }
+    seen.add(code);
+    track('scan_ok', { kind: parsed.kind });
+    if (navigator.vibrate) {
+      try { navigator.vibrate(40); } catch (error) { /* вибрация не критична */ }
+    }
+
+    const known = store.getState().pantry.find(function (entry) {
+      return entry.barcode === code;
+    });
+    if (known) {
+      pushRow(code, known.name, 'already', 'уже на полке — повторно не добавляем');
+      setStatus('«' + known.name + '» уже на полке.');
+      announce('Код уже есть на полке.');
+      return;
+    }
+
+    const remembered = lookup.cachedProduct(code);
+    let saved = null;
+    try {
+      saved = store.addPantry(conveyorPayload(code, remembered));
+    } catch (error) {
+      track('scan_fail', { reason: 'add' });
+      seen.delete(code);
+      setStatus('Не получилось добавить продукт. Попробуйте ещё раз.', true);
+      return;
+    }
+
+    track('product_add');
+    const entry = { id: saved.id, code: code, name: saved.name, row: null, base: productSnapshot(saved) };
+    added.push(entry);
+
+    const searching = !remembered && autoLookup && navigator.onLine;
+    const state = remembered ? 'done' : (searching ? 'searching' : 'plain');
+    const note = remembered
+      ? productMetaText(saved, remembered, true)
+      : (searching
+          ? 'ищем в открытых базах…'
+          : (autoLookup
+              ? 'без интернета — название можно поправить позже'
+              : 'только код — название можно поправить позже'));
+    entry.row = pushRow(code, saved.name, state, note);
+    renderCount(true);
+    setStatus(remembered
+      ? '«' + saved.name + '» — из памяти устройства.'
+      : '«' + saved.name + '» добавлен' + (searching ? '. Ищем данные…' : '.'));
+    announce('Добавлено: ' + saved.name + '. Всего ' + conveyorCountText(added.length) + '.');
+
+    if (searching) queueLookup(entry);
+  }
+
+  function undoLast() {
+    const entry = added.pop();
+    if (!entry) return;
+    const removed = store.removePantry(entry.id);
+    seen.delete(entry.code);
+    updateRow(entry.row, entry.name, 'removed', 'убран с полки');
+    renderCount(true);
+    setStatus(removed
+      ? '«' + entry.name + '» убран с полки.'
+      : 'Этого продукта уже нет на полке.');
+    announce('Убрано. Всего ' + conveyorCountText(added.length) + '.');
+  }
+
+  function begin() {
+    if (begun || closed) return;
+    begun = true;
+    autoLookup = autoLookup && lookup.hasLookupConsent();
+    if (consent) consent.hidden = true;
+    if (cameraBox) cameraBox.hidden = false;
+    const subtitle = dialog.querySelector('.sheet__subtitle');
+    if (subtitle) subtitle.textContent = 'Держите камеру над кодом — продукты добавляются сами.';
+    if (doneButton) doneButton.focus({ preventScroll: true });
+
+    scanner = createScanner({
+      video: video,
+      continuous: true,
+      cooldownMs: 2400,
+      onStatus: function (text) { setStatus(text); },
+      onResult: handleScan,
+      onError: function (message, reason) {
+        track('scan_fail', { reason: reason || 'failed' });
+        setStatus(message, true);
+        announce('Камера недоступна. Закройте сканер и добавьте продукт вручную.');
+      }
+    });
+    scanner.start();
+  }
+
+  const allowButton = dialog.querySelector('[data-conveyor-allow]');
+  const skipButton = dialog.querySelector('[data-conveyor-skip]');
+  if (allowButton) {
+    allowButton.addEventListener('click', function () {
+      lookup.grantLookupConsent();
+      autoLookup = true;
+      begin();
+    });
+  }
+  if (skipButton) {
+    skipButton.addEventListener('click', function () {
+      autoLookup = false;
+      begin();
+    });
+  }
+
+  undoButton.addEventListener('click', undoLast);
+  doneButton.addEventListener('click', sheet.close);
+
+  renderCount(false);
+  if (allowed) window.requestAnimationFrame(begin);
+}
+
 /* ── Шторка фильтров ────────────────────────────────────────────── */
 
 function openFiltersSheet() {
@@ -1104,6 +1730,11 @@ function bindScreen(screen) {
 
     if (name === 'add') {
       openProductSheet(null);
+      return;
+    }
+
+    if (name === 'conveyor') {
+      startConveyor();
       return;
     }
 

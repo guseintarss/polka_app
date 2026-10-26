@@ -159,6 +159,30 @@ async function openScanner(page) {
   await page.waitForFunction(() => !document.querySelector('dialog.sheet--scanner'), null, { timeout: 20000 });
 }
 
+/* Подменный BarcodeDetector: отдаёт коды по очереди, затем пустой кадр. */
+function detectorScript(codes) {
+  return `
+    (function () {
+      const queue = ${JSON.stringify(codes)};
+      let index = 0;
+      function FakeBarcodeDetector() {}
+      FakeBarcodeDetector.getSupportedFormats = function () {
+        return Promise.resolve(['ean_13']);
+      };
+      FakeBarcodeDetector.prototype.detect = function () {
+        if (index >= queue.length) return Promise.resolve([]);
+        const code = queue[index];
+        index += 1;
+        return Promise.resolve([{ rawValue: code, format: 'ean_13' }]);
+      };
+      Object.defineProperty(window, 'BarcodeDetector', {
+        value: FakeBarcodeDetector,
+        configurable: true
+      });
+    })();
+  `;
+}
+
 async function expectNoErrors(errors, label) {
   assert.deepEqual(errors, [], label + ': ошибки консоли/сети');
 }
@@ -207,6 +231,39 @@ async function main() {
       await shot(page, '02-' + route);
     }
     await expectNoErrors(errors, 'navigation');
+  });
+
+  await test('Рецепты: локальные иллюстрации без внешних запросов', async () => {
+    await go(page, 'recipes');
+    const cards = await page.locator('.recipe-card').count();
+    assert(cards >= 20, 'рецептов на экране: ' + cards);
+    const srcs = await page.evaluate(() => {
+      const images = Array.from(document.querySelectorAll('.recipe-card__media img'));
+      images.forEach((image) => { image.loading = 'eager'; });
+      return images.map((image) => image.getAttribute('src'));
+    });
+    assert.equal(srcs.length, cards, 'не у каждого рецепта есть картинка');
+    assert(srcs.every((src) => /^assets\/dishes\/[a-z0-9-]+\.svg$/.test(src || '')),
+      'картинка не из локального каталога: ' + srcs.join(', '));
+    assert.equal(new Set(srcs).size, cards, 'картинки повторяются');
+    await page.waitForFunction(() => {
+      const images = Array.from(document.querySelectorAll('.recipe-card__media img'));
+      return images.length > 0 && images.every((image) => image.complete);
+    }, null, { timeout: 10000 });
+    const broken = await page.evaluate(() => Array.from(document.querySelectorAll('.recipe-card__media img'))
+      .filter((image) => !image.naturalWidth).map((image) => image.getAttribute('src')));
+    assert.deepEqual(broken, [], 'картинки не загрузились');
+
+    await go(page, 'recipes/chickpea-curry');
+    const hero = page.locator('.recipe-hero img');
+    await hero.waitFor({ timeout: 5000 });
+    assert.equal(await hero.getAttribute('src'), 'assets/dishes/chickpea-curry.svg');
+    await page.waitForFunction(() => {
+      const image = document.querySelector('.recipe-hero img');
+      return image && image.complete;
+    }, null, { timeout: 5000 });
+    assert(await hero.evaluate((image) => image.naturalWidth > 0), 'hero-картинка не загрузилась');
+    assert.equal(await page.locator('#screen video, #screen iframe').count(), 0, 'в рецепте встроено медиа');
   });
 
   await test('PWA: manifest и service worker', async () => {
@@ -678,7 +735,7 @@ async function main() {
     assert(!jsonText.includes('кабачки'), 'в отчёте есть название продукта');
   });
 
-  await test('Поиск по коду: по кнопке, согласие, память, ошибки и сброс', async () => {
+  await test('Поиск по коду: кнопка, согласие, память, OFF → OPF, ошибки и сброс', async () => {
     await uiPage.evaluate(() => localStorage.removeItem('polka.lookup.v1'));
     await uiPage.reload({ waitUntil: 'networkidle' });
     await uiPage.waitForSelector('#screen .screen', { timeout: 10000 });
@@ -689,35 +746,48 @@ async function main() {
     await clearToasts();
 
     const requests = [];
-    const handler = (route) => {
+    const fulfill = (route, body, status) => {
+      requests.push(route.request().url());
+      route.fulfill({
+        status: status || 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body)
+      });
+    };
+    const notFound = { status: 0, status_verbose: 'product not found' };
+    const offHandler = (route) => {
       const url = route.request().url();
-      requests.push(url);
-      if (url.includes('4601234567999')) {
-        route.fulfill({
-          status: 404,
-          contentType: 'application/json',
-          body: JSON.stringify({ status: 0, status_verbose: 'product not found' })
-        });
+      if (url.includes('4601234567999') || url.includes('4601234567880')) {
+        fulfill(route, notFound, 404);
         return;
       }
       if (url.includes('4601234567000')) {
-        route.fulfill({
-          status: 500,
-          contentType: 'application/json',
-          body: JSON.stringify({ status: 'failure' })
+        fulfill(route, { status: 'failure' }, 500);
+        return;
+      }
+      fulfill(route, {
+        status: 1,
+        product: { product_name: 'Тестовое молоко 3,2%', brands: 'Ферма', quantity: '900 ml' }
+      });
+    };
+    const opfHandler = (route) => {
+      const url = route.request().url();
+      if (url.includes('4601234567880')) {
+        fulfill(route, {
+          status: 1,
+          product: {
+            product_name: 'Тестовый крем для рук',
+            brands: 'Чистота',
+            quantity: '250 ml',
+            categories_tags: ['en:cosmetics']
+          }
         });
         return;
       }
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          status: 1,
-          product: { product_name: 'Тестовое молоко 3,2%', brands: 'Ферма', quantity: '900 ml' }
-        })
-      });
+      fulfill(route, notFound, 404);
     };
-    await uiPage.route('https://world.openfoodfacts.org/**', handler);
+    await uiPage.route('https://world.openfoodfacts.org/**', offHandler);
+    await uiPage.route('https://world.openproductsfacts.org/**', opfHandler);
 
     try {
       await go(uiPage, 'pantry');
@@ -732,6 +802,7 @@ async function main() {
       await uiPage.locator('[data-lookup]').click();
       await uiPage.locator('dialog.sheet [data-confirm-ok]').waitFor({ timeout: 5000 });
       assert((await uiPage.locator('dialog.sheet').last().innerText()).includes('Open Food Facts'), 'нет пояснения о базе');
+      assert((await uiPage.locator('dialog.sheet').last().innerText()).includes('Open Products Facts'), 'нет второго источника');
       await uiPage.locator('dialog.sheet [data-confirm-cancel]').last().click();
       await uiPage.locator('dialog.sheet [data-confirm-ok]').waitFor({ state: 'detached', timeout: 3000 });
       assert.equal(requests.length, 0, 'после отказа ушёл запрос');
@@ -773,11 +844,34 @@ async function main() {
       await uiPage.waitForFunction(() => Array.from(document.querySelectorAll('.toast'))
         .some((node) => node.textContent.includes('этого кода нет')), null, { timeout: 5000 });
       assert.equal(await uiPage.locator('#pantry-name').inputValue(), '', 'название подставилось для неизвестного кода');
-      assert.equal(requests.length, 2, 'запрос за неизвестным кодом не ушёл');
+      assert.equal(requests.length, 3, 'запрос за неизвестным кодом не ушёл');
+      assert(requests[1].includes('world.openfoodfacts.org') && requests[1].includes('4601234567999'),
+        'OFF не опрошен: ' + requests[1]);
+      assert(requests[2].includes('world.openproductsfacts.org') && requests[2].includes('4601234567999'),
+        'OPF не опрошен после 404: ' + requests[2]);
       await uiPage.locator('dialog.sheet [data-cancel]').click();
       await waitNoSheets(uiPage);
 
-      // ошибка базы: 500 → понятный тост, без подстановки
+      // OFF не нашёл, OPF нашёл: данные приходят из второго источника
+      await uiPage.locator('#screen [data-action="add"]').first().click();
+      await clearToasts();
+      await uiPage.locator('#pantry-barcode').fill('4601234567880');
+      await uiPage.locator('[data-lookup]').click();
+      await uiPage.waitForFunction(() => document.querySelector('#pantry-name').value === 'Тестовый крем для рук',
+        null, { timeout: 5000 });
+      assert.equal(await uiPage.locator('#pantry-qty').inputValue(), '250');
+      assert.equal(await uiPage.locator('#pantry-unit').inputValue(), 'мл');
+      assert((await uiPage.locator('[data-autofill]').innerText()).includes('Open Products Facts'),
+        'нет пометки второго источника');
+      assert.equal(requests.length, 5, 'цепочка OFF → OPF: запросов ' + requests.length);
+      assert(requests[3].includes('world.openfoodfacts.org') && requests[3].includes('4601234567880'),
+        'первым должен быть OFF: ' + requests[3]);
+      assert(requests[4].includes('world.openproductsfacts.org') && requests[4].includes('4601234567880'),
+        'вторым должен быть OPF: ' + requests[4]);
+      await uiPage.locator('dialog.sheet [data-cancel]').click();
+      await waitNoSheets(uiPage);
+
+      // ошибка базы: 500 → понятный тост, без подстановки и без OPF
       await uiPage.locator('#screen [data-action="add"]').first().click();
       await clearToasts();
       await uiPage.locator('#pantry-barcode').fill('4601234567000');
@@ -785,7 +879,9 @@ async function main() {
       await uiPage.waitForFunction(() => Array.from(document.querySelectorAll('.toast'))
         .some((node) => node.textContent.includes('Не получилось получить данные')), null, { timeout: 5000 });
       assert.equal(await uiPage.locator('#pantry-name').inputValue(), '', 'название подставилось при ошибке базы');
-      assert.equal(requests.length, 3, 'запрос за кодом с ошибкой не ушёл');
+      assert.equal(requests.length, 6, 'запрос за кодом с ошибкой не ушёл');
+      assert.equal(requests.filter((url) => url.includes('4601234567000') &&
+        url.includes('world.openproductsfacts.org')).length, 0, 'OPF опрошен после ошибки OFF');
       await uiPage.locator('dialog.sheet [data-cancel]').click();
       await waitNoSheets(uiPage);
 
@@ -797,7 +893,7 @@ async function main() {
       await uiPage.locator('[data-lookup]').click();
       await uiPage.waitForFunction(() => Array.from(document.querySelectorAll('.toast'))
         .some((node) => node.textContent.includes('Нет интернета')), null, { timeout: 5000 });
-      assert.equal(requests.length, 3, 'офлайн-ветка ушла в сеть');
+      assert.equal(requests.length, 6, 'офлайн-ветка ушла в сеть');
       assert.equal(await uiPage.locator('#pantry-name').inputValue(), '', 'название подставилось офлайн');
       await uiContext.setOffline(false);
       await uiPage.locator('dialog.sheet [data-cancel]').click();
@@ -822,8 +918,10 @@ async function main() {
       assert(stored.lookup && stored.lookup.consent === true, 'согласие не сохранено');
       assert(stored.lookup.cache['4601234567890'] && stored.lookup.cache['4601234567890'].name === 'Тестовое молоко 3,2%',
         'найденное не сохранилось в память');
-      assert.equal(stored.totals.scan_lookup, 5, 'всего поисков: ' + stored.totals.scan_lookup);
-      assert.equal(stored.totals['scan_lookup.found'], 2, 'найдено: ' + stored.totals['scan_lookup.found']);
+      assert(stored.lookup.cache['4601234567880'] && stored.lookup.cache['4601234567880'].source === 'Open Products Facts',
+        'источник OPF не сохранился в память');
+      assert.equal(stored.totals.scan_lookup, 6, 'всего поисков: ' + stored.totals.scan_lookup);
+      assert.equal(stored.totals['scan_lookup.found'], 3, 'найдено: ' + stored.totals['scan_lookup.found']);
       assert.equal(stored.totals['scan_lookup.notfound'], 1, 'не найдено: ' + stored.totals['scan_lookup.notfound']);
       assert.equal(stored.totals['scan_lookup.error'], 1, 'ошибок: ' + stored.totals['scan_lookup.error']);
       assert.equal(stored.totals['scan_lookup.offline'], 1, 'офлайн: ' + stored.totals['scan_lookup.offline']);
@@ -843,7 +941,8 @@ async function main() {
       assert.equal(await uiPage.evaluate(() => localStorage.getItem('polka.lookup.v1')), null, 'память поиска не удалилась');
       assert((await resetRow.innerText()).includes('пусто'), 'статус сброса не обновился');
     } finally {
-      await uiPage.unroute('https://world.openfoodfacts.org/**', handler);
+      await uiPage.unroute('https://world.openfoodfacts.org/**', offHandler);
+      await uiPage.unroute('https://world.openproductsfacts.org/**', opfHandler);
     }
   });
 
@@ -893,6 +992,304 @@ async function main() {
       assert.equal(await scanPage.locator('#pantry-name').inputValue(), 'Товар с кодом');
       await scanPage.locator('[data-cancel]').click();
       await waitNoSheets(scanPage);
+    });
+  });
+
+  await test('Конвейер: согласие внутри шторки, коды подряд и отмена', async () => {
+    const fixture = scanFixture('4601234567890', 'code');
+    if (!fixture) {
+      console.log('  skip  нет qrencode/ffmpeg — фикстура камеры не собрана');
+      return;
+    }
+    const codes = ['4600000000004', '4600000000011', '4600000000028', '4600000000011', '4600000000035'];
+    await withFakeCamera(fixture, detectorScript(codes), async ({ page: scanPage }) => {
+      await resetDemo(scanPage);
+      await scanPage.evaluate(async () => {
+        const store = await import(new URL('js/store.js', document.baseURI).href);
+        store.addPantry({ name: 'Уже на полке', qty: 1, unit: 'шт', barcode: '4600000000004' });
+      });
+
+      await scanPage.locator('#screen [data-action="conveyor"]').first().click();
+      await scanPage.waitForSelector('dialog.sheet--conveyor', { timeout: 5000 });
+      const consentText = await scanPage.locator('dialog.sheet--conveyor').innerText();
+      assert(consentText.includes('Подставлять данные из открытых баз?'), 'нет вопроса о поиске');
+      assert(consentText.includes('Open Products Facts'), 'в согласии нет второго источника');
+      await scanPage.locator('[data-conveyor-skip]').click();
+
+      await scanPage.waitForFunction(() => {
+        const node = document.querySelector('[data-conveyor-count]');
+        return node && node.textContent === '3';
+      }, null, { timeout: 20000 });
+
+      assert.equal(await scanPage.locator('.conveyor-row').count(), 4, 'лента: уже на полке + три новых');
+      assert.equal(await scanPage.locator('.conveyor-row.is-already').count(), 1, 'нет строки «уже на полке»');
+      const feed = await scanPage.locator('.conveyor-row__name').allInnerTexts();
+      assert(feed.includes('Товар 4600000000028'), 'в ленте нет второго продукта: ' + feed.join(', '));
+      assert.equal(feed.filter((name) => name === 'Товар 4600000000011').length, 1, 'повтор попал в ленту дважды');
+      assert.equal(await scanPage.evaluate(() => localStorage.getItem('polka.lookup.v1')), null, 'отказ записал согласие');
+      await shot(scanPage, '05-conveyor');
+
+      await scanPage.locator('[data-conveyor-undo]').click();
+      await scanPage.waitForFunction(() => {
+        const node = document.querySelector('[data-conveyor-count]');
+        return node && node.textContent === '2';
+      }, null, { timeout: 3000 });
+      assert.equal(await scanPage.evaluate(async () => {
+        const store = await import(new URL('js/store.js', document.baseURI).href);
+        return store.getState().pantry.some((item) => item.barcode === '4600000000035');
+      }), false, 'отмена не убрала последний продукт');
+
+      await scanPage.locator('[data-conveyor-done]').click();
+      await waitNoSheets(scanPage);
+      await scanPage.waitForTimeout(300);
+      const barcodes = await scanPage.evaluate(async () => {
+        const store = await import(new URL('js/store.js', document.baseURI).href);
+        const wanted = ['4600000000011', '4600000000028', '4600000000035'];
+        return store.getState().pantry
+          .filter((item) => wanted.includes(item.barcode))
+          .map((item) => item.barcode)
+          .sort();
+      });
+      assert.deepEqual(barcodes, ['4600000000011', '4600000000028'], 'на полке: ' + barcodes.join(', '));
+      await scanPage.locator('.toast').filter({ hasText: 'На полку добавлено 2 продукта' }).last()
+        .waitFor({ timeout: 5000 });
+    });
+  });
+
+  await test('Конвейер: автопоиск дополняет названия из OFF и OPF', async () => {
+    const fixture = scanFixture('4601234567890', 'code');
+    if (!fixture) {
+      console.log('  skip  нет qrencode/ffmpeg — фикстура камеры не собрана');
+      return;
+    }
+    const codes = ['4600000000011', '4600000000028'];
+    await withFakeCamera(fixture, detectorScript(codes), async ({ page: scanPage, errors }) => {
+      await scanPage.evaluate(async () => {
+        const lookup = await import(new URL('js/lookup.js', document.baseURI).href);
+        lookup.resetLookupData();
+        lookup.grantLookupConsent();
+      });
+      await resetDemo(scanPage);
+
+      const requests = [];
+      const fulfill = (route, body, status) => {
+        requests.push(route.request().url());
+        route.fulfill({
+          status: status || 200,
+          contentType: 'application/json',
+          body: JSON.stringify(body)
+        });
+      };
+      const notFound = { status: 0, status_verbose: 'product not found' };
+      const offHandler = (route) => {
+        if (route.request().url().includes('4600000000011')) {
+          fulfill(route, {
+            status: 1,
+            product: {
+              product_name_ru: 'Молоко тестовое',
+              brands: 'Ферма',
+              quantity: '1 l',
+              categories_tags: ['en:dairies']
+            }
+          });
+          return;
+        }
+        fulfill(route, notFound, 404);
+      };
+      const opfHandler = (route) => {
+        if (route.request().url().includes('4600000000028')) {
+          fulfill(route, {
+            status: 1,
+            product: { product_name: 'Крем тестовый', brands: 'Чистота', quantity: '250 ml' }
+          });
+          return;
+        }
+        fulfill(route, notFound, 404);
+      };
+      await scanPage.route('https://world.openfoodfacts.org/**', offHandler);
+      await scanPage.route('https://world.openproductsfacts.org/**', opfHandler);
+
+      try {
+        await scanPage.locator('#screen [data-action="conveyor"]').first().click();
+        await scanPage.waitForSelector('dialog.sheet--conveyor', { timeout: 5000 });
+        assert.equal(await scanPage.locator('[data-conveyor-allow]').count(), 0, 'согласие спросили повторно');
+
+        await scanPage.waitForFunction(() => {
+          return document.querySelectorAll('.conveyor-row.is-done').length === 2;
+        }, null, { timeout: 20000 });
+
+        const names = await scanPage.locator('.conveyor-row__name').allInnerTexts();
+        assert(names.includes('Молоко тестовое') && names.includes('Крем тестовый'),
+          'названия в ленте: ' + names.join(', '));
+        assert.equal(requests.filter((url) => url.includes('4600000000028')).length, 2,
+          'для второго кода ожидались OFF и OPF');
+        assert(requests.some((url) => url.includes('world.openproductsfacts.org') && url.includes('4600000000028')),
+          'OPF не опрошен после 404 OFF');
+
+        await scanPage.locator('[data-conveyor-done]').click();
+        await waitNoSheets(scanPage);
+        await scanPage.waitForTimeout(300);
+        const saved = await scanPage.evaluate(async () => {
+          const store = await import(new URL('js/store.js', document.baseURI).href);
+          return store.getState().pantry
+            .filter((item) => item.barcode === '4600000000011' || item.barcode === '4600000000028')
+            .map((item) => ({
+              barcode: item.barcode,
+              name: item.name,
+              qty: item.qty,
+              unit: item.unit,
+              category: item.category,
+              storage: item.storage
+            }))
+            .sort((a, b) => a.barcode.localeCompare(b.barcode));
+        });
+        assert.deepEqual(saved, [
+          {
+            barcode: '4600000000011',
+            name: 'Молоко тестовое',
+            qty: 1,
+            unit: 'л',
+            category: 'Молочное',
+            storage: 'fridge'
+          },
+          {
+            barcode: '4600000000028',
+            name: 'Крем тестовый',
+            qty: 250,
+            unit: 'мл',
+            category: 'Другое',
+            storage: 'pantry'
+          }
+        ], 'продукты после автопоиска: ' + JSON.stringify(saved));
+      } finally {
+        await scanPage.unroute('https://world.openfoodfacts.org/**', offHandler);
+        await scanPage.unroute('https://world.openproductsfacts.org/**', opfHandler);
+      }
+
+      // OFF ответил 404 для второго кода — это часть сценария
+      for (let i = errors.length - 1; i >= 0; i -= 1) {
+        if (/^console: Failed to load resource: the server responded with a status of 404 \(/.test(errors[i])) {
+          errors.splice(i, 1);
+        }
+      }
+    });
+  });
+
+  await test('Конвейер: фоновый поиск не затирает правки и не крадёт фокус', async () => {
+    const fixture = scanFixture('4601234567890', 'code');
+    if (!fixture) {
+      console.log('  skip  нет qrencode/ffmpeg — фикстура камеры не собрана');
+      return;
+    }
+    await withFakeCamera(fixture, detectorScript(['4600000000011']), async ({ page: scanPage, errors }) => {
+      await scanPage.evaluate(async () => {
+        const lookup = await import(new URL('js/lookup.js', document.baseURI).href);
+        lookup.resetLookupData();
+        lookup.grantLookupConsent();
+      });
+      await resetDemo(scanPage);
+
+      let release = null;
+      let requestSeen = null;
+      const gate = new Promise((resolve) => { release = resolve; });
+      const seen = new Promise((resolve) => { requestSeen = resolve; });
+      const handler = async (route) => {
+        if (!route.request().url().includes('4600000000011')) {
+          route.fulfill({
+            status: 404,
+            contentType: 'application/json',
+            body: JSON.stringify({ status: 0, status_verbose: 'product not found' })
+          });
+          return;
+        }
+        requestSeen();
+        await gate;
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 1,
+            product: {
+              product_name: 'Молоко',
+              brands: 'Ферма',
+              quantity: '1 l',
+              categories_tags: ['en:dairies']
+            }
+          })
+        });
+      };
+      await scanPage.route('https://world.openfoodfacts.org/**', handler);
+
+      try {
+        await scanPage.locator('#screen [data-action="conveyor"]').first().click();
+        await scanPage.waitForSelector('dialog.sheet--conveyor', { timeout: 5000 });
+        await scanPage.waitForFunction(() => document.querySelectorAll('.conveyor-row.is-searching').length === 1,
+          null, { timeout: 10000 });
+        await Promise.race([
+          seen,
+          new Promise((resolve, reject) => setTimeout(() => reject(new Error('запрос к OFF не ушёл')), 8000))
+        ]);
+
+        await scanPage.locator('[data-conveyor-done]').click();
+        await waitNoSheets(scanPage);
+        await scanPage.waitForTimeout(250);
+
+        const row = scanPage.locator('.pantry-row').filter({ hasText: 'Товар 4600000000011' }).first();
+        await row.waitFor({ timeout: 5000 });
+        await row.click();
+        await scanPage.locator('#pantry-qty').fill('2');
+        await scanPage.locator('#pantry-unit').selectOption('кг');
+        await scanPage.locator('[data-save]').click();
+        await waitNoSheets(scanPage);
+        await scanPage.waitForTimeout(250);
+
+        /* Завершаем поиск, пока открыта другая шторка: обновление ждёт её закрытия. */
+        await scanPage.locator('#screen [data-action="filters"]').click();
+        await scanPage.waitForSelector('dialog.sheet', { timeout: 5000 });
+        release();
+        await scanPage.waitForTimeout(350);
+        assert.equal(await scanPage.locator('dialog.sheet').count(), 1, 'фоновая перерисовка закрыла шторку');
+        await scanPage.locator('dialog.sheet [data-sheet-close]').click();
+        await waitNoSheets(scanPage);
+
+        await scanPage.waitForFunction(() => Array.from(document.querySelectorAll('.toast'))
+          .some((node) => node.textContent.includes('Данные продуктов обновлены')), null, { timeout: 10000 });
+
+        const saved = await scanPage.evaluate(async () => {
+          const store = await import(new URL('js/store.js', document.baseURI).href);
+          const item = store.getState().pantry.find((entry) => entry.barcode === '4600000000011');
+          return item ? {
+            name: item.name,
+            qty: item.qty,
+            unit: item.unit,
+            category: item.category,
+            storage: item.storage
+          } : null;
+        });
+        assert.deepEqual(saved, {
+          name: 'Молоко',
+          qty: 2,
+          unit: 'кг',
+          category: 'Молочное',
+          storage: 'fridge'
+        }, 'фоновая подстановка затёрла правки: ' + JSON.stringify(saved));
+
+        const focused = await scanPage.evaluate(() => {
+          const active = document.activeElement;
+          return active ? { action: active.getAttribute('data-action'), id: active.getAttribute('data-id') } : null;
+        });
+        assert.equal(focused && focused.action, 'filters', 'фокус ушёл после фонового обновления: ' + JSON.stringify(focused));
+      } finally {
+        release();
+        await scanPage.unroute('https://world.openfoodfacts.org/**', handler);
+      }
+
+      // OFF ответил 404 для кода, которого нет в базе — ожидаемая ветка
+      for (let i = errors.length - 1; i >= 0; i -= 1) {
+        if (/^console: Failed to load resource: the server responded with a status of 404 \(/.test(errors[i])) {
+          errors.splice(i, 1);
+        }
+      }
     });
   });
 
